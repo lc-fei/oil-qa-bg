@@ -5,7 +5,6 @@ import {
   FileTextOutlined,
   NodeIndexOutlined,
   TeamOutlined,
-  UnlockOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
 } from "@ant-design/icons";
@@ -42,11 +41,6 @@ const menuItems = [
     label: <Link to="/users">用户管理</Link>,
   },
   {
-    key: "/roles",
-    icon: <UnlockOutlined />,
-    label: <Link to="/roles">角色权限</Link>,
-  },
-  {
     key: "graph",
     icon: <ClusterOutlined />,
     label: "知识图谱",
@@ -78,7 +72,6 @@ const menuItems = [
 const breadcrumbNameMap: Record<string, string> = {
   "/": "首页总览",
   "/users": "用户管理",
-  "/roles": "角色权限",
   "/graph/entities": "图谱实体管理",
   "/graph/visual": "图谱可视化",
   "/monitor": "运行监控",
@@ -163,12 +156,13 @@ export default function AppLayout() {
         width={248}
         style={{
           background:
-            "linear-gradient(180deg, #0f1b2d 0%, #162943 42%, #102238 100%)",
+            "linear-gradient(180deg, #101924 0%, #162536 48%, #0c1521 100%)",
         }}
       >
         <div className="admin-logo">
-          <strong>{collapsed ? "OIL QA" : "油井工程智能问答"}</strong>
-          <span>{collapsed ? "Admin" : "知识图谱管理平台"}</span>
+          <em>{collapsed ? "KG" : "OIL-QA CONTROL"}</em>
+          <strong>{collapsed ? "OQ" : "油井工程智能问答"}</strong>
+          <span>{collapsed ? "SYS" : "Knowledge Graph Console"}</span>
         </div>
         <Menu
           mode="inline"
@@ -178,6 +172,10 @@ export default function AppLayout() {
           items={menuItems}
           style={{ background: "transparent", borderInlineEnd: "none" }}
         />
+        <div className="admin-sider__footer">
+          <span>System Layer</span>
+          <strong>{collapsed ? "L2" : "Admin Surface · Layer 02"}</strong>
+        </div>
       </Sider>
 
       <Layout>
@@ -186,11 +184,19 @@ export default function AppLayout() {
             <button className="admin-trigger" onClick={toggleCollapsed} type="button">
               {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             </button>
-            <Breadcrumb items={breadcrumbItems} />
+            <div className="admin-header__titles">
+              <span>MANAGEMENT NODE</span>
+              <Breadcrumb items={breadcrumbItems} />
+            </div>
           </div>
 
           <div className="admin-header__right">
-            <Tag color="gold">{authStore.userInfo?.roles?.[0] ?? "ADMIN"}</Tag>
+            <Tag bordered={false} color="gold">
+              {authStore.userInfo?.roles?.[0] ?? "ADMIN"}
+            </Tag>
+            <Tag bordered={false} color="cyan">
+              ONLINE
+            </Tag>
             <Dropdown
               menu={{
                 items: dropdownItems,
@@ -201,7 +207,7 @@ export default function AppLayout() {
                 },
               }}
             >
-              <Button type="text">
+              <Button className="admin-user" type="text">
                 <Avatar style={{ backgroundColor: "#c6813d", marginRight: 8 }}>
                   {authStore.userInfo?.username?.slice(0, 1) ?? "管"}
                 </Avatar>

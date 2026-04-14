@@ -5,7 +5,6 @@ export default [
   layout("routes/app-layout.tsx", [
     index("routes/dashboard.tsx"),
     route("users", "routes/users.tsx"),
-    route("roles", "routes/roles.tsx"),
     route("graph/entities", "routes/graph-entities.tsx"),
     route("graph/visual", "routes/graph-visual.tsx"),
     route("monitor", "routes/monitor.tsx"),
