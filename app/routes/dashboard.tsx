@@ -12,6 +12,7 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "首页总览 | 油井工程智能问答系统" }];
 }
 
+// 当前首页仍以静态数据为主，用于承接后续监控接口接入前的版式占位。
 const metrics = [
   { label: "今日问答总次数", value: "1,286", delta: "+12.8%" },
   { label: "问答成功次数", value: "1,214", delta: "+6.4%" },
@@ -19,6 +20,7 @@ const metrics = [
   { label: "图谱命中次数", value: "932", delta: "+9.1%" },
 ];
 
+// 链路摘要卡片强调系统核心阶段，方便后续切换成真实监控数据。
 const pipeline = [
   {
     title: "NLP 识别",

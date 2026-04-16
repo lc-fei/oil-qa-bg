@@ -1,6 +1,7 @@
 import logoDark from "./logo-dark.svg";
 import logoLight from "./logo-light.svg";
 
+// 该组件是 React Router 默认模板遗留页面，当前业务路由未直接使用。
 export function Welcome() {
   return (
     <main className="flex items-center justify-center pt-16 pb-4">
@@ -46,6 +47,7 @@ export function Welcome() {
   );
 }
 
+// 默认模板资源保留在仓库中，便于后续需要时快速参考脚手架结构。
 const resources = [
   {
     href: "https://reactrouter.com/docs",

@@ -65,6 +65,7 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const roleSelectOptions = useMemo(
+    // 用户编辑时只暴露启用中的角色，避免分配到已停用角色。
     () =>
       roleOptions
         .filter((item) => item.status === 1)
@@ -109,6 +110,7 @@ export default function UsersPage() {
   }, [query]);
 
   function handleSearch(values: UserListQuery) {
+    // 查询前统一做 trim 和空值归一化，避免把空字符串传给后端接口。
     setQuery({
       pageNum: 1,
       pageSize: query.pageSize,
@@ -125,6 +127,7 @@ export default function UsersPage() {
   }
 
   async function openCreateDrawer() {
+    // 新增场景默认启用状态，减少常规录入步骤。
     setEditingId(null);
     drawerForm.resetFields();
     drawerForm.setFieldsValue({
@@ -135,6 +138,7 @@ export default function UsersPage() {
   }
 
   async function openEditDrawer(record: UserListItem) {
+    // 编辑场景通过详情接口回填，避免列表字段不全导致表单信息缺失。
     setEditingId(record.id);
     setDrawerOpen(true);
     drawerForm.resetFields();
@@ -164,6 +168,7 @@ export default function UsersPage() {
   async function handleSubmit(values: UserPayload & { password?: string }) {
     setSubmitting(true);
 
+    // 抽屉表单和接口字段并不完全一致，提交前在这里做一次规范化。
     const payload: UserPayload = {
       username: values.username.trim(),
       account: values.account?.trim(),
@@ -205,6 +210,7 @@ export default function UsersPage() {
   }
 
   async function handleStatusChange(record: UserListItem, checked: boolean) {
+    // 状态切换走独立接口，避免为了启停操作提交整份用户资料。
     try {
       await updateUserStatus(record.id, { status: checked ? 1 : 0 });
       message.success(checked ? "用户已启用" : "用户已禁用");
@@ -244,6 +250,7 @@ export default function UsersPage() {
       key: "roles",
       width: 180,
       render: (roles: string[]) => (
+        // 列表中直接展示角色编码，方便联调阶段核对后端返回值。
         <Space wrap>
           {roles.length ? roles.map((role) => <Tag key={role}>{role}</Tag>) : "-"}
         </Space>

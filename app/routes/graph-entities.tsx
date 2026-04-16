@@ -46,6 +46,7 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "图谱实体管理 | 油井工程智能问答系统" }];
 }
 
+// 属性编辑区采用 JSON 文本输入，提交前在这里统一做对象解析。
 function safeParseJson(value: string | undefined) {
   if (!value?.trim()) {
     return {};
@@ -54,6 +55,7 @@ function safeParseJson(value: string | undefined) {
   return JSON.parse(value) as Record<string, string>;
 }
 
+// 详情回显时把属性对象重新格式化成易编辑的 JSON 文本。
 function stringifyJson(value?: Record<string, string>) {
   return value && Object.keys(value).length ? JSON.stringify(value, null, 2) : "";
 }
@@ -81,6 +83,7 @@ export default function GraphEntitiesPage() {
     void loadList(query);
   }, [query]);
 
+  // 实体录入和筛选都依赖类型下拉，因此页面初始化时先拉取选项。
   async function loadOptions() {
     try {
       const data = await getGraphOptions();
@@ -103,6 +106,7 @@ export default function GraphEntitiesPage() {
     }
   }
 
+  // 实体详情抽屉会额外带出关联关系摘要，便于管理员快速判断删除风险。
   async function openDetail(id: string) {
     try {
       const [detail, relations] = await Promise.all([
@@ -128,6 +132,7 @@ export default function GraphEntitiesPage() {
     }
 
     try {
+      // 编辑时必须回源详情接口，列表并不包含全部属性数据。
       const detail = await getEntityDetail(record.id);
       editForm.setFieldsValue({
         name: detail.name,
@@ -144,6 +149,7 @@ export default function GraphEntitiesPage() {
 
   async function handleDelete(id: string) {
     try {
+      // 删除前先调用后端校验接口，避免存在关联关系时误删节点。
       const check = await deleteCheckEntity(id);
       if (!check.canDelete) {
         message.warning(check.message);
@@ -165,6 +171,7 @@ export default function GraphEntitiesPage() {
       dataIndex: "name",
       width: 160,
       render: (value: string, record) => (
+        // 名称列直接作为详情入口，减少用户在表格中重复寻找详情按钮。
         <button className="graph-link" type="button" onClick={() => void openDetail(record.id)}>
           {value}
         </button>

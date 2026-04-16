@@ -24,15 +24,18 @@ export default function LoginPage() {
   const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
+    // 登录页也会主动恢复本地登录态，避免已登录用户再次看到登录表单。
     authStore.bootstrap().catch(() => undefined);
   }, [authStore]);
 
   useEffect(() => {
+    // 登录态已恢复且已认证时，直接回到后台首页。
     if (authStore.initialized && authStore.isAuthenticated) {
       void navigate("/", { replace: true });
     }
   }, [authStore.initialized, authStore.isAuthenticated, navigate]);
 
+  // 提交登录表单时统一处理按钮 loading、错误提示和成功跳转。
   async function handleFinish(values: { account: string; password: string }) {
     setSubmitting(true);
     setErrorText("");
@@ -67,6 +70,7 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* 用问答主链路做视觉锚点，让登录页直接体现系统业务属性。 */}
         <div className="login-brand__board">
           <div className="login-brand__board-head">
             <span>问答主链路</span>
@@ -113,6 +117,7 @@ export default function LoginPage() {
             `/api` 代理联调，也可通过 `VITE_API_BASE_URL` 指定后端地址。
           </p>
 
+          {/* 账号范围和认证方式做成摘要卡，减少用户对后台入口用途的理解成本。 */}
           <div className="login-card__meta">
             <div>
               <span>角色范围</span>

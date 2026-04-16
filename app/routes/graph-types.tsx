@@ -45,6 +45,7 @@ export default function GraphTypesPage() {
     void loadData();
   }, []);
 
+  // 实体类型和关系类型在同页维护，首次进入时并行拉取两份字典数据。
   async function loadData() {
     try {
       const [entityData, relationData] = await Promise.all([
@@ -59,6 +60,7 @@ export default function GraphTypesPage() {
   }
 
   function openModal(record?: GraphTypeItem) {
+    // 新增和编辑共用一个弹窗，按是否传入记录决定回填内容。
     setEditingRecord(record ?? null);
     setModalOpen(true);
     form.resetFields();
@@ -94,6 +96,7 @@ export default function GraphTypesPage() {
           checkedChildren="启用"
           unCheckedChildren="停用"
           onChange={(checked) => {
+            // 状态更新接口按当前 Tab 分流，避免误改另一类类型数据。
             const request = activeTab === "entity"
               ? updateEntityTypeStatus(record.id, { status: checked ? 1 : 0 })
               : updateRelationTypeStatus(record.id, { status: checked ? 1 : 0 });
@@ -170,6 +173,7 @@ export default function GraphTypesPage() {
           layout="vertical"
           onFinish={async (values) => {
             try {
+              // 弹窗同样复用实体类型和关系类型两类保存逻辑。
               if (activeTab === "entity") {
                 if (editingRecord) {
                   await updateEntityType(editingRecord.id, values);

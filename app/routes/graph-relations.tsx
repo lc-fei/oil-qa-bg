@@ -60,6 +60,7 @@ export default function GraphRelationsPage() {
     void loadList(query);
   }, [query]);
 
+  // 关系页需要类型下拉，因此先加载统一图谱选项。
   async function loadOptions() {
     try {
       const data = await getGraphOptions();
@@ -82,6 +83,7 @@ export default function GraphRelationsPage() {
     }
   }
 
+  // 关系起点和终点都来自实体检索下拉，这里做按关键字远程搜索。
   async function searchEntities(keyword: string) {
     if (!keyword.trim()) {
       setEntityOptions([]);
@@ -115,6 +117,7 @@ export default function GraphRelationsPage() {
         propertiesText: JSON.stringify(detail.properties || {}, null, 2),
       });
       setEntityOptions([
+        // 编辑时预置当前两端实体，避免远程搜索候选为空导致表单无法显示。
         {
           value: detail.sourceEntityId,
           label: detail.sourceEntityName,
@@ -180,7 +183,7 @@ export default function GraphRelationsPage() {
       title: "操作",
       width: 160,
       fixed: "right",
-      render: (_, record) => (
+          render: (_, record) => (
         <Space size="small">
           <Button size="small" icon={<EditOutlined />} onClick={() => void openEditor(record)}>
             编辑
@@ -286,6 +289,7 @@ export default function GraphRelationsPage() {
           onFinish={async (values) => {
             setSubmitting(true);
             try {
+              // 关系属性仍按 JSON 文本编辑，提交时统一转换成对象结构。
               const payload = {
                 sourceEntityId: values.sourceEntityId,
                 targetEntityId: values.targetEntityId,

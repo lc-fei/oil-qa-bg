@@ -5,6 +5,7 @@ interface PagePlaceholderProps {
   description: string;
 }
 
+// 通用占位页用于尚未展开实现的页面，保持整体后台风格一致。
 export function PagePlaceholder({
   title,
   description,

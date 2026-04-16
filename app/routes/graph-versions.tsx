@@ -37,6 +37,7 @@ export default function GraphVersionsPage() {
     void loadVersions(query);
   }, [query]);
 
+  // 版本页数据结构简单，列表和详情拆分是为了避免首页表格承载过多文本。
   async function loadVersions(params: Record<string, unknown>) {
     setLoading(true);
     try {
@@ -124,6 +125,7 @@ export default function GraphVersionsPage() {
           layout="vertical"
           onFinish={async (values) => {
             try {
+              // 手动新增版本记录用于补充批量导入之外的阶段性治理说明。
               await createVersion(values);
               message.success("版本记录已创建");
               setModalOpen(false);

@@ -11,6 +11,7 @@ import { App as AntdApp, ConfigProvider } from "antd";
 import type { Route } from "./+types/root";
 import "./app.css";
 
+// 根文档统一在这里注入项目所需字体，避免页面组件重复声明。
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -24,6 +25,7 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
+// Layout 负责输出基础 HTML 壳层，路由内容通过 children 注入。
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
@@ -46,6 +48,7 @@ export default function App() {
   return (
     <ConfigProvider
       theme={{
+        // 管理端的品牌色和圆角体系在根节点统一下发，保持各页面视觉一致。
         token: {
           colorPrimary: "#c6813d",
           colorInfo: "#c6813d",
@@ -68,12 +71,14 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
+    // 路由错误优先使用框架返回的状态信息，保证 404 等场景语义明确。
     message = error.status === 404 ? "404" : "Error";
     details =
       error.status === 404
         ? "请求的页面不存在。"
         : error.statusText || details;
   } else if (import.meta.env.DEV && error && error instanceof Error) {
+    // 仅在开发环境暴露堆栈，避免生产环境直接泄露内部实现细节。
     details = error.message;
     stack = error.stack;
   }

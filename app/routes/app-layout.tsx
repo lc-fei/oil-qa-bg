@@ -32,6 +32,7 @@ import { useAuthStore } from "../stores/auth-store";
 
 const { Header, Sider, Content } = Layout;
 
+// 左侧导航在这里统一定义，保证菜单、路由和面包屑命名保持同源。
 const menuItems = [
   {
     key: "/",
@@ -87,6 +88,7 @@ const menuItems = [
   },
 ];
 
+// 面包屑文案单独维护，避免在渲染逻辑里散落硬编码字符串。
 const breadcrumbNameMap: Record<string, string> = {
   "/": "首页总览",
   "/users": "用户管理",
@@ -106,16 +108,19 @@ export default function AppLayout() {
   const authStore = useAuthStore();
 
   useEffect(() => {
+    // 布局层负责兜底恢复登录态，避免用户直接访问深层页面时出现空白状态。
     authStore.bootstrap().catch(() => undefined);
   }, [authStore]);
 
   useEffect(() => {
+    // 未认证用户一律打回登录页，防止受保护路由直接暴露。
     if (authStore.initialized && !authStore.isAuthenticated) {
       void navigate("/login", { replace: true });
     }
   }, [authStore.initialized, authStore.isAuthenticated, navigate]);
 
   const selectedKeys = useMemo(() => {
+    // 图谱模块采用多子路由结构，选中态直接按当前 pathname 对齐即可。
     if (location.pathname.startsWith("/graph/")) {
       return [location.pathname];
     }
@@ -132,6 +137,7 @@ export default function AppLayout() {
     }
 
     return pathname.map((_, index) => {
+      // 面包屑通过路径逐级回放生成，便于后续继续扩展多层路由。
       const current = `/${pathname.slice(0, index + 1).join("/")}`;
       return {
         title: breadcrumbNameMap[current] ?? current,
@@ -145,12 +151,14 @@ export default function AppLayout() {
   ];
 
   async function handleLogout() {
+    // 退出登录后强制跳回登录页，避免保留后台上下文。
     await authStore.logout();
     message.success("已退出登录");
     void navigate("/login", { replace: true });
   }
 
   if (!authStore.initialized) {
+    // 布局层初始化期间不渲染主框架，避免闪现菜单和页面内容。
     return (
       <main className="center-shell">
         <div className="center-card">

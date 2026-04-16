@@ -51,6 +51,7 @@ export default function GraphImportPage() {
     void loadTasks(query);
   }, [query]);
 
+  // 导入任务列表既用于回看历史，也用于追踪当前提交的批量导入结果。
   async function loadTasks(params: Record<string, unknown>) {
     setLoading(true);
     try {
@@ -114,7 +115,8 @@ export default function GraphImportPage() {
           <Form
             form={form}
             layout="vertical"
-            onFinish={async (values) => {
+          onFinish={async (values) => {
+              // 上传接口要求 multipart/form-data，这里手动组装 FormData。
               if (!fileList.length) {
                 message.warning("请先选择导入文件");
                 return;
@@ -124,6 +126,7 @@ export default function GraphImportPage() {
                 const payload = new FormData();
                 payload.append("file", fileList[0].originFileObj as File);
                 payload.append("importType", values.importType);
+                // 版本说明是可选治理字段，有值时再附带给后端。
                 if (values.versionRemark) payload.append("versionRemark", values.versionRemark);
                 await importGraphData(payload);
                 message.success("导入任务已提交");
@@ -157,6 +160,7 @@ export default function GraphImportPage() {
             <div className="graph-upload-box">
               <Upload
                 beforeUpload={(file) => {
+                  // 阻止组件自动上传，改为由表单统一触发导入接口。
                   setFileList([file]);
                   return false;
                 }}
