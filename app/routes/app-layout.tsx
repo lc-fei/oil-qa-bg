@@ -3,7 +3,6 @@ import {
   BarChartOutlined,
   ClusterOutlined,
   DashboardOutlined,
-  FileTextOutlined,
   PartitionOutlined,
   NodeIndexOutlined,
   TeamOutlined,
@@ -86,11 +85,6 @@ const menuItems = [
     icon: <BarChartOutlined />,
     label: <Link to="/monitor">运行监控</Link>,
   },
-  {
-    key: "/logs",
-    icon: <FileTextOutlined />,
-    label: <Link to="/logs">异常日志</Link>,
-  },
 ];
 
 const breadcrumbNameMap: Record<string, string> = {
@@ -103,7 +97,6 @@ const breadcrumbNameMap: Record<string, string> = {
   "/graph/versions": "图谱版本记录",
   "/graph/visual": "图谱可视化",
   "/monitor": "运行监控",
-  "/logs": "异常日志",
 };
 
 export default function AppLayout() {

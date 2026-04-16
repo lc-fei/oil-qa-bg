@@ -71,12 +71,14 @@ export default function GraphVisualPage() {
     const centerY = 250;
     return nodes.map((node, index) => {
       const manual = nodePositions[node.id];
+      // 用户拖拽过的节点优先保留手动位置，避免每次重渲染又回到自动布局。
       if (manual) {
         return { ...node, x: manual.x, y: manual.y };
       }
       if (node.id === graph?.centerEntityId) {
         return { ...node, x: centerX, y: centerY };
       }
+      // 非中心节点使用简化的环形布局，保证在无第三方图引擎时也能稳定展示。
       const angle = ((index + 1) * Math.PI * 2) / Math.max(nodes.length - 1, 1);
       const radius = nodes.length > 8 ? 220 : 180;
       return {
@@ -93,6 +95,7 @@ export default function GraphVisualPage() {
   );
 
   async function searchEntities(keyword: string) {
+    // 下拉搜索为空时直接清空候选，避免继续保留上一次搜索结果造成误选。
     if (!keyword.trim()) {
       setEntityOptions([]);
       return;
@@ -107,6 +110,7 @@ export default function GraphVisualPage() {
 
   async function handleVisualQuery(values: Record<string, unknown>) {
     try {
+      // 表单字段名和后端协议不同，这里统一转换为后端当前唯一认可的参数命名。
       const data = await getVisualization({
         entityId: values.centerEntityId,
         name: values.centerEntityName,
@@ -116,6 +120,7 @@ export default function GraphVisualPage() {
         limit: values.limit,
       });
       setGraph(data);
+      // 每次重新拉取子图都重置拖拽位置和视口，保证展示起点一致。
       setNodePositions({});
       setViewport({ x: 0, y: 0, scale: 1 });
       const center = data.nodes.find((node) => node.id === data.centerEntityId) ?? data.nodes[0] ?? null;
@@ -129,6 +134,7 @@ export default function GraphVisualPage() {
   async function handlePathHighlight() {
     const sourceEntityId = form.getFieldValue("pathSourceEntityId");
     const targetEntityId = form.getFieldValue("pathTargetEntityId");
+    // 路径查询必须有明确起点和终点，否则后端无法给出有效路径。
     if (!sourceEntityId || !targetEntityId) {
       message.warning("请选择路径起点和终点实体");
       return;
@@ -141,6 +147,7 @@ export default function GraphVisualPage() {
         nodes: data.nodes,
         edges: data.edges,
       });
+      // 路径高亮会替换当前画布内容，因此同样重置视口和手动布局。
       setNodePositions({});
       setViewport({ x: 0, y: 0, scale: 1 });
       setSelectedNode(data.nodes[0] ?? null);
@@ -156,6 +163,7 @@ export default function GraphVisualPage() {
   function handleWheel(event: React.WheelEvent<HTMLDivElement>) {
     event.preventDefault();
     const nextScale = viewport.scale + (event.deltaY < 0 ? 0.08 : -0.08);
+    // 缩放范围固定在可读区间内，避免画布被缩到不可操作。
     setViewport((prev) => ({
       ...prev,
       scale: Math.min(1.8, Math.max(0.55, Number(nextScale.toFixed(2)))),
@@ -163,6 +171,7 @@ export default function GraphVisualPage() {
   }
 
   function startCanvasDrag(event: React.MouseEvent<HTMLDivElement>) {
+    // 鼠标落在节点上时交给节点拖拽逻辑处理，避免两套拖拽冲突。
     if ((event.target as HTMLElement).closest(".graph-node")) {
       return;
     }
@@ -192,6 +201,7 @@ export default function GraphVisualPage() {
     if (draggingCanvas && dragStateRef.current) {
       const deltaX = event.clientX - dragStateRef.current.startX;
       const deltaY = event.clientY - dragStateRef.current.startY;
+      // 画布拖拽直接更新视口偏移，不改节点原始坐标。
       setViewport((prev) => ({
         ...prev,
         x: dragStateRef.current!.baseX + deltaX,
@@ -206,6 +216,7 @@ export default function GraphVisualPage() {
         return;
       }
 
+      // 节点拖拽要除以当前缩放倍数，否则缩放后拖动距离会失真。
       const movementX = (event.clientX - nodeDragRef.current.offsetX) / viewport.scale;
       const movementY = (event.clientY - nodeDragRef.current.offsetY) / viewport.scale;
 

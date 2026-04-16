@@ -1013,6 +1013,86 @@ a {
   justify-content: center;
 }
 
+.monitor-page {
+  padding: 20px 28px 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.monitor-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.monitor-dual-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.monitor-trend-chart {
+  height: 220px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background:
+    linear-gradient(rgba(19, 30, 41, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(19, 30, 41, 0.03) 1px, transparent 1px);
+  background-size: 100% 25%, 14.28% 100%;
+}
+
+.monitor-trend-bar {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  height: 100%;
+}
+
+.monitor-trend-bar i {
+  align-self: end;
+  width: 100%;
+  border-radius: 16px 16px 8px 8px;
+  background: linear-gradient(180deg, var(--accent-soft), #ae682b);
+  box-shadow: 0 12px 22px rgba(201, 134, 61, 0.18);
+}
+
+.monitor-trend-bar span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.monitor-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.monitor-phase-list {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-phase-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(19, 30, 41, 0.04);
+  border: 1px solid rgba(19, 30, 41, 0.06);
+}
+
+.monitor-phase-item span {
+  display: block;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
 .graph-info-stats,
 .graph-property-grid {
   display: grid;
@@ -1169,6 +1249,9 @@ a {
 }
 
 @media (max-width: 1200px) {
+  .monitor-metrics,
+  .monitor-dual-grid,
+  .monitor-performance-grid,
   .graph-visual-layout,
   .dashboard-band,
   .dashboard-grid {
@@ -1212,6 +1295,12 @@ a {
 
   .graph-info-stats,
   .graph-property-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .monitor-metrics,
+  .monitor-dual-grid,
+  .monitor-performance-grid {
     grid-template-columns: 1fr;
   }
 }

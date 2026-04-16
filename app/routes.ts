@@ -12,6 +12,5 @@ export default [
     route("graph/versions", "routes/graph-versions.tsx"),
     route("graph/visual", "routes/graph-visual.tsx"),
     route("monitor", "routes/monitor.tsx"),
-    route("logs", "routes/logs.tsx"),
   ]),
 ] satisfies RouteConfig;
