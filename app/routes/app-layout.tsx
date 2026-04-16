@@ -1,12 +1,16 @@
 import {
+  CloudUploadOutlined,
   BarChartOutlined,
   ClusterOutlined,
   DashboardOutlined,
   FileTextOutlined,
+  PartitionOutlined,
   NodeIndexOutlined,
   TeamOutlined,
+  TagsOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  HistoryOutlined,
 } from "@ant-design/icons";
 import {
   Avatar,
@@ -51,6 +55,26 @@ const menuItems = [
         label: <Link to="/graph/entities">实体管理</Link>,
       },
       {
+        key: "/graph/relations",
+        icon: <PartitionOutlined />,
+        label: <Link to="/graph/relations">关系管理</Link>,
+      },
+      {
+        key: "/graph/types",
+        icon: <TagsOutlined />,
+        label: <Link to="/graph/types">类型管理</Link>,
+      },
+      {
+        key: "/graph/import",
+        icon: <CloudUploadOutlined />,
+        label: <Link to="/graph/import">导入任务</Link>,
+      },
+      {
+        key: "/graph/versions",
+        icon: <HistoryOutlined />,
+        label: <Link to="/graph/versions">版本记录</Link>,
+      },
+      {
         key: "/graph/visual",
         icon: <ClusterOutlined />,
         label: <Link to="/graph/visual">图谱可视化</Link>,
@@ -73,6 +97,10 @@ const breadcrumbNameMap: Record<string, string> = {
   "/": "首页总览",
   "/users": "用户管理",
   "/graph/entities": "图谱实体管理",
+  "/graph/relations": "图谱关系管理",
+  "/graph/types": "图谱类型管理",
+  "/graph/import": "图谱导入任务",
+  "/graph/versions": "图谱版本记录",
   "/graph/visual": "图谱可视化",
   "/monitor": "运行监控",
   "/logs": "异常日志",
