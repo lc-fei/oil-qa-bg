@@ -460,7 +460,9 @@ a {
 }
 
 .admin-header {
-  padding: 0 24px;
+  height: 64px;
+  padding: 0 20px;
+  line-height: normal;
   background: rgba(247, 242, 235, 0.62);
   border-bottom: 1px solid rgba(21, 32, 51, 0.06);
   backdrop-filter: blur(18px);
@@ -474,10 +476,20 @@ a {
 .admin-header__right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+}
+
+.admin-header__left {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-header__right {
+  flex-shrink: 0;
 }
 
 .admin-header__titles {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -491,9 +503,17 @@ a {
   font-family: var(--font-condensed);
 }
 
+.admin-header__titles .ant-breadcrumb {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .admin-trigger {
   width: 42px;
   height: 42px;
+  flex: 0 0 42px;
   border-radius: 14px;
   border: none;
   cursor: pointer;
@@ -501,11 +521,67 @@ a {
   box-shadow: inset 0 0 0 1px rgba(21, 32, 51, 0.08);
 }
 
+.admin-status-group {
+  /* 右侧状态统一包进控制台状态槽，避免独立标签在 Header 行高中错位。 */
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(19, 30, 41, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.admin-status-pill {
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-status-pill--role {
+  max-width: 118px;
+  color: #81572d;
+  background: linear-gradient(180deg, rgba(201, 134, 61, 0.18), rgba(201, 134, 61, 0.08));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-status-pill--online {
+  color: #17675f;
+  background: linear-gradient(180deg, rgba(127, 215, 208, 0.22), rgba(127, 215, 208, 0.1));
+}
+
+.admin-status-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #19b6a7;
+  box-shadow: 0 0 0 4px rgba(25, 182, 167, 0.12);
+}
+
 .admin-user {
   height: 42px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 190px;
+  padding: 0 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.6);
   box-shadow: inset 0 0 0 1px rgba(19, 30, 41, 0.08);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.admin-user .ant-avatar {
+  flex: 0 0 auto;
 }
 
 .admin-content {
@@ -1303,6 +1379,10 @@ a {
   .monitor-performance-grid {
     grid-template-columns: 1fr;
   }
+
+  .admin-status-group {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1331,5 +1411,18 @@ a {
   .hero-strip,
   .login-brand__timeline {
     grid-template-columns: 1fr;
+  }
+
+  .admin-header {
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .admin-header__right {
+    gap: 8px;
+  }
+
+  .admin-user {
+    max-width: 132px;
   }
 }

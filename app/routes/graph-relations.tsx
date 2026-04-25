@@ -24,9 +24,9 @@ import { useEffect, useState } from "react";
 
 import type { Route } from "./+types/graph-relations";
 import {
-  buildRelationExportUrl,
   createRelation,
   deleteRelation,
+  exportRelationData,
   getEntityOptions,
   getGraphOptions,
   getRelationDetail,
@@ -51,6 +51,7 @@ export default function GraphRelationsPage() {
   const [entityOptions, setEntityOptions] = useState<GraphEntityOption[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void loadOptions();
@@ -198,7 +199,17 @@ export default function GraphRelationsPage() {
     },
   ];
 
-  const exportUrl = buildRelationExportUrl(searchForm.getFieldsValue());
+  async function handleExport() {
+    setExporting(true);
+    try {
+      // 导出请求必须经过 request 实例，避免浏览器直连下载丢失 Authorization。
+      await exportRelationData(searchForm.getFieldsValue());
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "关系导出失败");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <Card className="page-card" bordered={false}>
@@ -240,7 +251,7 @@ export default function GraphRelationsPage() {
               <Space wrap>
                 <Button type="primary" htmlType="submit">查询关系</Button>
                 <Button onClick={() => { searchForm.resetFields(); setQuery({ pageNum: 1, pageSize: 10 }); }}>重置</Button>
-                <Button icon={<DownloadOutlined />} href={exportUrl} target="_blank">导出关系</Button>
+                <Button icon={<DownloadOutlined />} loading={exporting} onClick={() => void handleExport()}>导出关系</Button>
               </Space>
               <Button type="primary" icon={<PlusOutlined />} onClick={() => void openEditor()}>
                 新增关系

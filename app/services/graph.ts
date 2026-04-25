@@ -5,6 +5,7 @@ import type {
   GraphEntityListItem,
   GraphEntityOption,
   GraphEntityRelationSummary,
+  GraphImportType,
   GraphImportTask,
   GraphImportTaskDetail,
   GraphOptions,
@@ -201,11 +202,6 @@ export async function importGraphData(payload: FormData) {
   const response = await request.post<ApiResponse<{ taskId: number }>>(
     "/api/admin/graph/import",
     payload,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    },
   );
   return response.data.data;
 }
@@ -264,29 +260,69 @@ export async function getPathData(params: Record<string, unknown>) {
   return response.data.data;
 }
 
-export function buildGraphTemplateUrl(templateType: "entity" | "relation") {
-  const base = import.meta.env.VITE_API_BASE_URL ?? "";
-  return `${base}/api/admin/graph/import/template?templateType=${templateType}`;
+// 下载接口必须走 axios 实例，确保 Authorization 请求头由拦截器统一注入。
+async function downloadFile(
+  url: string,
+  params: Record<string, unknown>,
+  fallbackFilename: string,
+) {
+  const response = await request.get<Blob>(url, {
+    params,
+    responseType: "blob",
+  });
+  const disposition = response.headers["content-disposition"];
+  const filename = resolveDownloadFilename(disposition, fallbackFilename);
+  const objectUrl = window.URL.createObjectURL(response.data);
+  const anchor = document.createElement("a");
+
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.click();
+  window.URL.revokeObjectURL(objectUrl);
 }
 
-export function buildEntityExportUrl(params: Record<string, unknown>) {
-  const base = import.meta.env.VITE_API_BASE_URL ?? "";
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.append(key, String(value));
-    }
-  });
-  return `${base}/api/admin/graph/export/entities?${query.toString()}`;
+// 后端可能通过 Content-Disposition 返回中文文件名，这里兼容 filename* 和 filename 两种格式。
+function resolveDownloadFilename(disposition: string | undefined, fallbackFilename: string) {
+  if (!disposition) {
+    return fallbackFilename;
+  }
+
+  const utf8Filename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plainFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+
+  try {
+    return decodeURIComponent(utf8Filename || plainFilename || fallbackFilename);
+  } catch {
+    return utf8Filename || plainFilename || fallbackFilename;
+  }
 }
 
-export function buildRelationExportUrl(params: Record<string, unknown>) {
-  const base = import.meta.env.VITE_API_BASE_URL ?? "";
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.append(key, String(value));
-    }
-  });
-  return `${base}/api/admin/graph/export/relations?${query.toString()}`;
+export async function downloadGraphTemplate(templateType: GraphImportType) {
+  // 模板类型与文件名保持一处映射，避免实体/关系模板入口写散。
+  const templateFilenameMap = {
+    entity: "实体导入模板.csv",
+    relation: "关系导入模板.csv",
+  };
+
+  await downloadFile(
+    "/api/admin/graph/import/template",
+    { templateType },
+    templateFilenameMap[templateType],
+  );
+}
+
+export async function exportEntityData(params: Record<string, unknown>) {
+  await downloadFile(
+    "/api/admin/graph/export/entities",
+    params,
+    "图谱实体数据.xlsx",
+  );
+}
+
+export async function exportRelationData(params: Record<string, unknown>) {
+  await downloadFile(
+    "/api/admin/graph/export/relations",
+    params,
+    "图谱关系数据.xlsx",
+  );
 }

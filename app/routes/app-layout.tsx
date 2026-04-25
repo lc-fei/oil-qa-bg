@@ -19,7 +19,6 @@ import {
   Layout,
   Menu,
   Spin,
-  Tag,
   Typography,
   message,
 } from "antd";
@@ -220,12 +219,16 @@ export default function AppLayout() {
           </div>
 
           <div className="admin-header__right">
-            <Tag bordered={false} color="gold">
-              {authStore.userInfo?.roles?.[0] ?? "ADMIN"}
-            </Tag>
-            <Tag bordered={false} color="cyan">
-              ONLINE
-            </Tag>
+            {/* 顶栏状态使用固定高度的自定义标签，避免 Antd Tag 在 Header 行高中产生漂浮感。 */}
+            <div className="admin-status-group">
+              <span className="admin-status-pill admin-status-pill--role">
+                {authStore.userInfo?.roles?.[0] ?? "ADMIN"}
+              </span>
+              <span className="admin-status-pill admin-status-pill--online">
+                <i />
+                ONLINE
+              </span>
+            </div>
             <Dropdown
               menu={{
                 items: dropdownItems,

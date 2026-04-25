@@ -86,9 +86,11 @@ export interface GraphEntityOption {
   typeName: string;
 }
 
+export type GraphImportType = "entity" | "relation";
+
 export interface GraphImportTask {
   taskId: number;
-  importType: string;
+  importType: GraphImportType;
   fileName: string;
   status: string;
   totalCount?: number;

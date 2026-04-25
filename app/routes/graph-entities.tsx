@@ -26,10 +26,10 @@ import { useEffect, useState } from "react";
 
 import type { Route } from "./+types/graph-entities";
 import {
-  buildEntityExportUrl,
   createEntity,
   deleteCheckEntity,
   deleteEntity,
+  exportEntityData,
   getEntityDetail,
   getEntityList,
   getEntityRelations,
@@ -74,6 +74,7 @@ export default function GraphEntitiesPage() {
   const [currentDetail, setCurrentDetail] = useState<GraphEntityDetail | null>(null);
   const [relationSummary, setRelationSummary] = useState<GraphEntityRelationSummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     void loadOptions();
@@ -225,7 +226,17 @@ export default function GraphEntitiesPage() {
     },
   ];
 
-  const exportUrl = buildEntityExportUrl(searchForm.getFieldsValue());
+  async function handleExport() {
+    setExporting(true);
+    try {
+      // 导出请求必须通过 axios 发送，才能携带 JWT 请求头。
+      await exportEntityData(searchForm.getFieldsValue());
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "实体导出失败");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <Card className="page-card" bordered={false}>
@@ -275,7 +286,7 @@ export default function GraphEntitiesPage() {
               <Space wrap>
                 <Button type="primary" htmlType="submit">查询实体</Button>
                 <Button onClick={() => { searchForm.resetFields(); setQuery({ pageNum: 1, pageSize: 10 }); }}>重置</Button>
-                <Button icon={<DownloadOutlined />} href={exportUrl} target="_blank">
+                <Button icon={<DownloadOutlined />} loading={exporting} onClick={() => void handleExport()}>
                   导出实体
                 </Button>
               </Space>

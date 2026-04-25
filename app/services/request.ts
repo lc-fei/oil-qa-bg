@@ -10,10 +10,27 @@ interface AuthSnapshot {
   token: string;
 }
 
+let authRedirecting = false;
+
 export const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "",
   timeout: 15000,
 });
+
+function redirectToLoginWhenAuthExpired() {
+  clearStorage(AUTH_STORAGE_KEY);
+
+  if (typeof window === "undefined" || authRedirecting) {
+    return;
+  }
+
+  authRedirecting = true;
+
+  // token 失效属于全局登录态问题，直接回登录页，避免各页面只弹 toast 后停留在失效状态。
+  if (window.location.pathname !== "/login") {
+    window.location.replace("/login");
+  }
+}
 
 request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const auth = readStorage<AuthSnapshot>(AUTH_STORAGE_KEY);
@@ -30,6 +47,10 @@ request.interceptors.response.use(
     const payload = response.data;
 
     if (payload?.code && payload.code !== 200) {
+      if (payload.code === 401) {
+        redirectToLoginWhenAuthExpired();
+      }
+
       return Promise.reject(new Error(payload.message || "请求失败"));
     }
 
@@ -39,7 +60,7 @@ request.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401) {
-      clearStorage(AUTH_STORAGE_KEY);
+      redirectToLoginWhenAuthExpired();
     }
 
     const message =
