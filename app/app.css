@@ -378,10 +378,25 @@ a {
 }
 
 .admin-layout {
+  height: 100vh;
   min-height: 100vh;
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 30%),
     linear-gradient(180deg, #ede7de 0%, #e6ebf0 100%);
+}
+
+.admin-main {
+  /* 后台框架固定在视口内，仅让内容区滚动，侧栏和顶栏保持稳定。 */
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-layout .ant-layout-sider {
+  height: 100vh;
+  overflow: hidden;
 }
 
 .admin-logo {
@@ -444,6 +459,7 @@ a {
 }
 
 .admin-layout .ant-layout-sider-children {
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -460,6 +476,7 @@ a {
 }
 
 .admin-header {
+  flex: 0 0 64px;
   height: 64px;
   padding: 0 20px;
   line-height: normal;
@@ -585,7 +602,25 @@ a {
 }
 
 .admin-content {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px;
+}
+
+.admin-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.admin-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.admin-content::-webkit-scrollbar-thumb {
+  border: 2px solid rgba(241, 235, 226, 0.8);
+  border-radius: 999px;
+  background: rgba(34, 51, 68, 0.26);
 }
 
 .page-card {

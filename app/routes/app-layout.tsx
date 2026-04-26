@@ -206,7 +206,8 @@ export default function AppLayout() {
         </div>
       </Sider>
 
-      <Layout>
+      {/* 主区域独立承载 Header 与 Content，滚动只交给内容区，避免侧边栏被页面滚动带走。 */}
+      <Layout className="admin-main">
         <Header className="admin-header">
           <div className="admin-header__left">
             <button className="admin-trigger" onClick={toggleCollapsed} type="button">

@@ -10,10 +10,12 @@ import {
   Button,
   Card,
   Col,
+  DatePicker,
   Descriptions,
   Drawer,
   Form,
   Input,
+  InputNumber,
   Modal,
   Row,
   Select,
@@ -62,9 +64,13 @@ import type {
   MonitorTrendPoint,
 } from "../types/monitor";
 
+const { RangePicker } = DatePicker;
+
 export function meta({}: Route.MetaArgs) {
   return [{ title: "运行监控 | 油井工程智能问答系统" }];
 }
+
+const DATE_TIME_FORMAT = "YYYY-MM-DD HH:mm:ss";
 
 const requestStatusOptions = [
   "SUCCESS",
@@ -98,6 +104,54 @@ function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+// 统计趋势接口要求显式日期范围，这里用本地时间计算最近 7 天，避免页面写死历史日期。
+function getRecentDateRange() {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 6);
+
+  return {
+    startDate: formatDate(start),
+    endDate: formatDate(end),
+  };
+}
+
+function toDateTimeRange(range: { startDate: string; endDate: string }) {
+  // 性能和异常摘要接口使用时间格式，趋势和高频问题接口使用日期格式。
+  return {
+    startTime: `${range.startDate} 00:00:00`,
+    endTime: `${range.endDate} 23:59:59`,
+  };
+}
+
+function formatDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeQueryWithTimeRange(values: Record<string, unknown>) {
+  const { timeRange, ...rest } = values;
+  const params: Record<string, unknown> = { ...rest };
+
+  // RangePicker 返回 dayjs 数组，提交前转换成后端文档要求的 startTime/endTime 字符串。
+  if (Array.isArray(timeRange) && timeRange[0] && timeRange[1]) {
+    params.startTime = timeRange[0].format(DATE_TIME_FORMAT);
+    params.endTime = timeRange[1].format(DATE_TIME_FORMAT);
+  }
+
+  return params;
+}
+
+function pickExceptionSummaryParams(params: Record<string, unknown>) {
+  // 异常摘要接口文档只支持时间范围，不能把列表筛选项原样透传给统计接口。
+  return {
+    startTime: params.startTime,
+    endTime: params.endTime,
+  };
+}
+
 export default function MonitorPage() {
   const [requestForm] = Form.useForm();
   const [exceptionForm] = Form.useForm();
@@ -128,6 +182,7 @@ export default function MonitorPage() {
   const [exceptionDrawerOpen, setExceptionDrawerOpen] = useState(false);
   const [exceptionDetail, setExceptionDetail] = useState<ExceptionLogDetail | null>(null);
   const [handleModalOpen, setHandleModalOpen] = useState(false);
+  const [dashboardRange] = useState(() => getRecentDateRange());
 
   useEffect(() => {
     void loadDashboard();
@@ -144,17 +199,19 @@ export default function MonitorPage() {
   // 首页摘要、趋势、性能、高频问题和异常摘要需要同时刷新，适合并行请求。
   async function loadDashboard() {
     try {
+      // 大盘默认按最近 7 天统计，顶部总览仍显式传 last7days 与趋势区保持一致。
+      const dateTimeRange = toDateTimeRange(dashboardRange);
       const [overviewData, trendData, topData, performanceData, summaryData] = await Promise.all([
-        getMonitorOverview({ rangeType: "today" }),
+        getMonitorOverview({ rangeType: "last7days" }),
         getMonitorTrend({
           metricType: "qaCount",
           granularity: "day",
-          startDate: "2026-04-10",
-          endDate: "2026-04-16",
+          startDate: dashboardRange.startDate,
+          endDate: dashboardRange.endDate,
         }),
-        getMonitorTopQuestions({ topN: 6 }),
-        getMonitorPerformance({}),
-        getExceptionSummary({}),
+        getMonitorTopQuestions({ ...dashboardRange, topN: 6 }),
+        getMonitorPerformance(dateTimeRange),
+        getExceptionSummary(dateTimeRange),
       ]);
       setOverview(overviewData);
       setTrend(trendData);
@@ -186,7 +243,7 @@ export default function MonitorPage() {
     try {
       const [listData, summaryData] = await Promise.all([
         getExceptionLogs(params),
-        getExceptionSummary(params),
+        getExceptionSummary(pickExceptionSummaryParams(params)),
       ]);
       setExceptionList(listData.list);
       setExceptionTotal(listData.total);
@@ -352,7 +409,9 @@ export default function MonitorPage() {
                 <span className="page-hero__eyebrow">TREND SNAPSHOT</span>
                 <h3>问答趋势</h3>
               </div>
-              <Tag bordered={false} color="blue">最近 7 天</Tag>
+              <Tag bordered={false} color="blue">
+                {dashboardRange.startDate} ~ {dashboardRange.endDate}
+              </Tag>
             </div>
             <div className="monitor-trend-chart">
               {trend.map((item) => (
@@ -453,13 +512,39 @@ export default function MonitorPage() {
             </div>
             <DashboardOutlined />
           </div>
-          <Form form={requestForm} layout="vertical" onFinish={(values) => setRequestQuery({ ...values, pageNum: 1, pageSize: requestQuery.pageSize })}>
+          <Form
+            form={requestForm}
+            layout="vertical"
+            onFinish={(values) => {
+              // 请求列表筛选参数按接口文档归一化，时间范围拆成 startTime/endTime。
+              setRequestQuery({
+                ...normalizeQueryWithTimeRange(values),
+                pageNum: 1,
+                pageSize: requestQuery.pageSize,
+              });
+            }}
+          >
             <Row gutter={[16, 4]}>
               <Col xs={24} md={8}><Form.Item label="问题关键字" name="keyword"><Input allowClear placeholder="输入问题关键字" /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="请求状态" name="requestStatus"><Select allowClear options={requestStatusOptions} /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="请求来源" name="requestSource"><Select allowClear options={requestSourceOptions} /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="图谱命中" name="hasGraphHit"><Select allowClear options={[{ label: "是", value: 1 }, { label: "否", value: 0 }]} /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="包含异常" name="hasException"><Select allowClear options={[{ label: "是", value: 1 }, { label: "否", value: 0 }]} /></Form.Item></Col>
+              <Col xs={24} md={8}>
+                <Form.Item label="请求时间" name="timeRange">
+                  <RangePicker showTime format={DATE_TIME_FORMAT} style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={4}>
+                <Form.Item label="最小耗时(ms)" name="minDurationMs">
+                  <InputNumber min={0} precision={0} placeholder="如 500" style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={4}>
+                <Form.Item label="最大耗时(ms)" name="maxDurationMs">
+                  <InputNumber min={0} precision={0} placeholder="如 3000" style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
             </Row>
             <div className="users-toolbar__actions">
               <Space wrap>
@@ -504,13 +589,30 @@ export default function MonitorPage() {
               <ExceptionOutlined />
             </Space>
           </div>
-          <Form form={exceptionForm} layout="vertical" onFinish={(values) => setExceptionQuery({ ...values, pageNum: 1, pageSize: exceptionQuery.pageSize })}>
+          <Form
+            form={exceptionForm}
+            layout="vertical"
+            onFinish={(values) => {
+              // 异常列表筛选同样按文档拆出 startTime/endTime，列表与摘要共用该时间范围。
+              setExceptionQuery({
+                ...normalizeQueryWithTimeRange(values),
+                pageNum: 1,
+                pageSize: exceptionQuery.pageSize,
+              });
+            }}
+          >
             <Row gutter={[16, 4]}>
               <Col xs={24} md={6}><Form.Item label="异常模块" name="exceptionModule"><Input allowClear placeholder="如 AI_CALL / GRAPH" /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="异常级别" name="exceptionLevel"><Select allowClear options={exceptionLevelOptions} /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="处理状态" name="handleStatus"><Select allowClear options={handleStatusOptions} /></Form.Item></Col>
               <Col xs={24} md={6}><Form.Item label="关键字" name="keyword"><Input allowClear placeholder="按异常摘要搜索" /></Form.Item></Col>
               <Col xs={24} md={4}><Form.Item label="请求编号" name="requestId"><Input allowClear placeholder="关联请求编号" /></Form.Item></Col>
+              <Col xs={24} md={6}><Form.Item label="链路编号" name="traceId"><Input allowClear placeholder="关联 traceId" /></Form.Item></Col>
+              <Col xs={24} md={8}>
+                <Form.Item label="发生时间" name="timeRange">
+                  <RangePicker showTime format={DATE_TIME_FORMAT} style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
             </Row>
             <div className="users-toolbar__actions">
               <Space wrap>
