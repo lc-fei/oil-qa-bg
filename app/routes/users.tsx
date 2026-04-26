@@ -76,6 +76,7 @@ export default function UsersPage() {
     [roleOptions],
   );
 
+  // 角色数据用于权限配置下拉，失败时不阻断用户列表展示。
   async function loadRoles() {
     try {
       const data = await getRoleOptions();
@@ -86,6 +87,7 @@ export default function UsersPage() {
     }
   }
 
+  // 用户列表按当前 query 拉取，分页、搜索和状态筛选都汇聚到这里。
   async function loadUsers(currentQuery: UserListQuery) {
     setLoading(true);
 
@@ -122,6 +124,7 @@ export default function UsersPage() {
   }
 
   function handleReset() {
+    // 重置时恢复初始分页，避免保留上一轮筛选条件影响后续查询。
     searchForm.resetFields();
     setQuery(initialQuery);
   }
@@ -160,6 +163,7 @@ export default function UsersPage() {
   }
 
   function closeDrawer() {
+    // 关闭抽屉时清理编辑态和表单值，避免下次新增继承旧用户数据。
     setDrawerOpen(false);
     setEditingId(null);
     drawerForm.resetFields();
@@ -199,6 +203,7 @@ export default function UsersPage() {
   }
 
   async function handleDelete(id: number) {
+    // 删除后刷新当前页数据，保持表格和后端状态一致。
     try {
       await deleteUser(id);
       message.success("用户已删除");

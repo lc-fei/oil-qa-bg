@@ -48,6 +48,7 @@ export function meta({}: Route.MetaArgs) {
 
 // 属性编辑区采用 JSON 文本输入，提交前在这里统一做对象解析。
 function safeParseJson(value: string | undefined) {
+  // 空属性按空对象处理，方便后端统一接收 properties 字段。
   if (!value?.trim()) {
     return {};
   }
@@ -57,6 +58,7 @@ function safeParseJson(value: string | undefined) {
 
 // 详情回显时把属性对象重新格式化成易编辑的 JSON 文本。
 function stringifyJson(value?: Record<string, string>) {
+  // 详情对象转回格式化文本，降低管理员手工编辑 JSON 的出错概率。
   return value && Object.keys(value).length ? JSON.stringify(value, null, 2) : "";
 }
 
@@ -95,6 +97,7 @@ export default function GraphEntitiesPage() {
   }
 
   async function loadList(params: Record<string, unknown>) {
+    // 列表加载统一维护 loading，分页、筛选和保存后的刷新都复用该入口。
     setLoading(true);
     try {
       const data = await getEntityList(params);
@@ -337,6 +340,7 @@ export default function GraphEntitiesPage() {
           onFinish={async (values) => {
             setSubmitting(true);
             try {
+              // 表单中的属性是 JSON 字符串，提交前转换为后端要求的对象结构。
               const payload = {
                 name: values.name,
                 typeCode: values.typeCode,
@@ -381,6 +385,7 @@ export default function GraphEntitiesPage() {
             label="扩展属性 JSON"
             rules={[{
               validator: (_, value) => {
+                // 属性字段允许为空；有值时必须是合法 JSON，避免提交后端解析失败。
                 if (!value?.trim()) return Promise.resolve();
                 try {
                   JSON.parse(value);

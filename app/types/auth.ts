@@ -1,3 +1,4 @@
+// 认证模块类型与后端统一响应结构保持一致，供 auth service 和 store 共享。
 export interface UserInfo {
   id: number;
   username: string;

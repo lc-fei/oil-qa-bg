@@ -1,3 +1,4 @@
+// 用户管理类型集中描述列表、详情、提交和角色选项，避免页面重复声明接口形状。
 export interface PageQuery {
   pageNum: number;
   pageSize: number;

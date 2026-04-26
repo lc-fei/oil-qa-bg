@@ -90,6 +90,7 @@ export default function GraphVisualPage() {
   }, [graph, nodePositions]);
 
   const nodeMap = useMemo(
+    // 边绘制时需要频繁按 ID 查找节点坐标，用 Map 避免反复遍历数组。
     () => new Map(positioned.map((item) => [item.id, item])),
     [positioned],
   );
@@ -237,6 +238,7 @@ export default function GraphVisualPage() {
   }
 
   function stopDrag() {
+    // 鼠标释放或离开画布时统一清空拖拽状态，避免残留拖拽引用影响下一次操作。
     setDraggingCanvas(false);
     setDraggingNodeId(null);
     dragStateRef.current = null;
@@ -349,7 +351,15 @@ export default function GraphVisualPage() {
                 </Tag>
                 <Button size="small" icon={<MinusOutlined />} onClick={() => setViewport((prev) => ({ ...prev, scale: Math.max(0.55, Number((prev.scale - 0.1).toFixed(2))) }))} />
                 <Button size="small" icon={<PlusOutlined />} onClick={() => setViewport((prev) => ({ ...prev, scale: Math.min(1.8, Number((prev.scale + 0.1).toFixed(2))) }))} />
-                <Button size="small" icon={<RedoOutlined />} onClick={() => { setViewport({ x: 0, y: 0, scale: 1 }); setNodePositions({}); }}>
+                <Button
+                  size="small"
+                  icon={<RedoOutlined />}
+                  onClick={() => {
+                    // 复位需要同时清空视口和手动节点位置，才能回到初始自动布局。
+                    setViewport({ x: 0, y: 0, scale: 1 });
+                    setNodePositions({});
+                  }}
+                >
                   复位
                 </Button>
               </div>
@@ -364,6 +374,7 @@ export default function GraphVisualPage() {
                   {graph.edges.map((edge) => {
                     const source = nodeMap.get(edge.source);
                     const target = nodeMap.get(edge.target);
+                    // 后端可能返回缺失端点的边，前端跳过异常边避免 SVG 渲染报错。
                     if (!source || !target) return null;
                     return (
                       <g key={edge.id} onClick={() => { setSelectedEdge(edge); setSelectedNode(null); }}>

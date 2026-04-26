@@ -1,3 +1,4 @@
+// 运行监控类型覆盖问答链路、性能统计和已合并的异常日志模块。
 export interface MonitorPageResult<T> {
   list: T[];
   total: number;

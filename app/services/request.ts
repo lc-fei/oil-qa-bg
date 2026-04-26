@@ -12,14 +12,17 @@ interface AuthSnapshot {
 
 let authRedirecting = false;
 
+// request 实例统一承载 baseURL、超时、鉴权头和业务错误处理，页面层只关心 data。
 export const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "",
   timeout: 15000,
 });
 
+// 认证失效会影响整个后台，集中跳转可以避免每个页面自行处理 401。
 function redirectToLoginWhenAuthExpired() {
   clearStorage(AUTH_STORAGE_KEY);
 
+  // SSR 或已经触发跳转时直接返回，防止重复 replace 导致路由抖动。
   if (typeof window === "undefined" || authRedirecting) {
     return;
   }
@@ -35,6 +38,7 @@ function redirectToLoginWhenAuthExpired() {
 request.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const auth = readStorage<AuthSnapshot>(AUTH_STORAGE_KEY);
 
+  // 所有受保护接口都依赖 Bearer token，通过拦截器统一注入避免调用方遗漏。
   if (auth?.token) {
     config.headers.Authorization = `Bearer ${auth.token}`;
   }
@@ -47,6 +51,7 @@ request.interceptors.response.use(
     const payload = response.data;
 
     if (payload?.code && payload.code !== 200) {
+      // 部分后端会用 HTTP 200 包业务 code=401，这里与标准 HTTP 401 做同等处理。
       if (payload.code === 401) {
         redirectToLoginWhenAuthExpired();
       }
@@ -59,6 +64,7 @@ request.interceptors.response.use(
   (error: AxiosError<{ message?: string }>) => {
     const status = error.response?.status;
 
+    // 标准 HTTP 401 直接回登录页，避免 token 过期后仅弹错误提示。
     if (status === 401) {
       redirectToLoginWhenAuthExpired();
     }

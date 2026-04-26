@@ -74,6 +74,7 @@ const requestStatusOptions = [
   "TIMEOUT",
 ].map((value) => ({ label: value, value }));
 
+// 请求来源、状态和异常级别都直接按后端枚举展示，避免前端翻译导致联调歧义。
 const requestSourceOptions = [
   "CLIENT_WEB",
   "ADMIN_DEBUG",
@@ -493,6 +494,7 @@ export default function MonitorPage() {
               <Button
                 disabled={!selectedExceptionIds.length}
                 onClick={() => {
+                  // 批量处理前清空表单，避免沿用单条异常详情里的旧备注。
                   handleForm.resetFields();
                   setHandleModalOpen(true);
                 }}
@@ -643,6 +645,7 @@ export default function MonitorPage() {
               type="primary"
               icon={<CheckCircleOutlined />}
               onClick={() => {
+                // 单条处理从详情中回填当前状态和备注，便于管理员增量修改。
                 handleForm.setFieldsValue({
                   handleStatus: exceptionDetail.handleStatus,
                   handleRemark: exceptionDetail.handleRemark,
@@ -690,7 +693,7 @@ export default function MonitorPage() {
         <Form
           form={handleForm}
           layout="vertical"
-            onFinish={async (values) => {
+          onFinish={async (values) => {
             try {
               // 单条处理和批量处理共用一个弹窗，根据是否勾选多条异常决定调用哪个接口。
               if (exceptionDetail?.exceptionId && !selectedExceptionIds.length) {

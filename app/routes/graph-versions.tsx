@@ -64,7 +64,13 @@ export default function GraphVersionsPage() {
         <Button
           size="small"
           icon={<EyeOutlined />}
-          onClick={() => void getVersionDetail(record.id).then((data) => { setDetail(data); setDetailOpen(true); })}
+          onClick={() => {
+            // 详情按需加载，避免版本列表一次性承载完整说明内容。
+            void getVersionDetail(record.id).then((data) => {
+              setDetail(data);
+              setDetailOpen(true);
+            });
+          }}
         >
           详情
         </Button>

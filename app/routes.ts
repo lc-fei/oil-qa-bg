@@ -1,5 +1,6 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
+// 路由表把登录页和受保护后台布局分开，所有管理端业务页都挂在 app-layout 下。
 export default [
   route("login", "routes/login.tsx"),
   layout("routes/app-layout.tsx", [

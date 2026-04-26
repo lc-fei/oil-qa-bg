@@ -42,6 +42,7 @@ export default function GraphTypesPage() {
   const [editingRecord, setEditingRecord] = useState<GraphTypeItem | null>(null);
 
   useEffect(() => {
+    // 类型字典是实体、关系、可视化等页面的基础约束，进入页面即加载。
     void loadData();
   }, []);
 
@@ -145,7 +146,12 @@ export default function GraphTypesPage() {
           </div>
           <Tabs
             activeKey={activeTab}
-            onChange={setActiveTab}
+            onChange={(key) => {
+              // 切换字典类型时关闭编辑态，避免实体类型表单误提交到关系类型接口。
+              setActiveTab(key);
+              setEditingRecord(null);
+              form.resetFields();
+            }}
             items={[
               {
                 key: "entity",

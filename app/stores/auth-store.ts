@@ -28,8 +28,10 @@ interface PersistedAuthState {
   userInfo: UserInfo;
 }
 
+// store 初始化时先读取本地缓存，让刷新页面后仍能保持已登录外观。
 const initialState = readStorage<PersistedAuthState>(AUTH_STORAGE_KEY);
 
+// 认证 store 同时维护内存状态和 localStorage，供路由守卫与请求拦截器共享登录态。
 export const useAuthStore = create<AuthState>((set, get) => ({
   token: initialState?.token ?? null,
   tokenType: initialState?.tokenType ?? "Bearer",
@@ -38,12 +40,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialized: false,
   isAuthenticated: Boolean(initialState?.token),
   bootstrap: async () => {
+    // bootstrap 只允许执行一次，避免布局和登录页同时触发重复校验。
     if (get().initialized) {
       return;
     }
 
     const current = readStorage<PersistedAuthState>(AUTH_STORAGE_KEY);
 
+    // 无 token 时直接结束初始化，让受保护布局负责跳转登录页。
     if (!current?.token) {
       set({ initialized: true, isAuthenticated: false, userInfo: null, token: null });
       return;
@@ -58,6 +62,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
 
     try {
+      // 使用 /auth/me 校验 token 有效性，同时刷新本地用户信息。
       const userInfo = await getCurrentUser();
       const nextState: PersistedAuthState = {
         ...current,
@@ -71,6 +76,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         userInfo,
       });
     } catch {
+      // token 失效或用户接口失败时必须清空状态，避免继续展示过期后台页面。
       clearStorage(AUTH_STORAGE_KEY);
       set({
         initialized: true,
@@ -82,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   login: async (payload) => {
+    // 登录成功后同时写入本地缓存和内存状态，刷新页面才能恢复会话。
     const data = await loginService(payload);
     const nextState: PersistedAuthState = {
       token: data.token,
@@ -99,11 +106,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     try {
+      // 只有存在 token 时才通知后端退出，避免未登录状态下产生无意义请求。
       if (get().token) {
         await logoutService();
       }
     } catch {
-      // Ignore logout request errors and clear local state anyway.
+      // 即使后端退出失败，也必须清理本地状态，避免用户无法主动退出。
     } finally {
       clearStorage(AUTH_STORAGE_KEY);
       set({

@@ -38,11 +38,13 @@ export async function getMonitorRequestDetail(requestId: string) {
 
 // NLP、图谱、Prompt、AI、耗时接口分别对应链路详情里的分区展示。
 export async function getMonitorNlpDetail(requestId: string) {
+  // NLP 详情用于展示意图识别、实体抽取等问答前置处理结果。
   const response = await request.get<ApiResponse<MonitorNlpDetail>>(`/api/admin/monitor/requests/${requestId}/nlp`);
   return response.data.data;
 }
 
 export async function getMonitorGraphDetail(requestId: string) {
+  // 图谱检索详情用于分析召回节点、边以及命中情况。
   const response = await request.get<ApiResponse<MonitorGraphRetrievalDetail>>(`/api/admin/monitor/requests/${requestId}/graph-retrieval`);
   return response.data.data;
 }
@@ -56,16 +58,19 @@ export async function getMonitorPromptDetail(requestId: string) {
 }
 
 export async function getMonitorAiDetail(requestId: string) {
+  // AI 调用详情用于排查模型耗时、返回状态和错误信息。
   const response = await request.get<ApiResponse<MonitorAiCallDetail>>(`/api/admin/monitor/requests/${requestId}/ai-call`);
   return response.data.data;
 }
 
 export async function getMonitorTimings(requestId: string) {
+  // 耗时拆解接口用于把一次问答请求拆成多个阶段分析瓶颈。
   const response = await request.get<ApiResponse<MonitorTimingsDetail>>(`/api/admin/monitor/requests/${requestId}/timings`);
   return response.data.data;
 }
 
 export async function getMonitorTrend(params: Record<string, unknown>) {
+  // 趋势接口按日期粒度返回统计点，用于页面自绘简化柱状图。
   const response = await request.get<ApiResponse<MonitorTrendPoint[]>>("/api/admin/monitor/statistics/trend", { params });
   return response.data.data;
 }
@@ -82,6 +87,7 @@ export async function getMonitorPerformance(params: Record<string, unknown>) {
 }
 
 export async function getExceptionSummary(params: Record<string, unknown>) {
+  // 异常摘要用于监控页右侧统计区，和异常列表筛选条件保持一致。
   const response = await request.get<ApiResponse<ExceptionSummary>>("/api/admin/exception-logs/summary", { params });
   return response.data.data;
 }
@@ -93,11 +99,13 @@ export async function getExceptionLogs(params: Record<string, unknown>) {
 }
 
 export async function getExceptionDetail(exceptionId: string) {
+  // 异常详情按需加载堆栈和处理记录，避免列表接口返回过大文本。
   const response = await request.get<ApiResponse<ExceptionLogDetail>>(`/api/admin/exception-logs/${exceptionId}`);
   return response.data.data;
 }
 
 export async function updateExceptionHandleStatus(exceptionId: string, payload: { handleStatus: string; handleRemark?: string }) {
+  // 单条处理接口用于详情抽屉内更新异常闭环状态和备注。
   const response = await request.put<ApiResponse<boolean>>(`/api/admin/exception-logs/${exceptionId}/handle-status`, payload);
   return response.data.data;
 }

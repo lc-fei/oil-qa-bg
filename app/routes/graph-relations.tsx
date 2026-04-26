@@ -72,6 +72,7 @@ export default function GraphRelationsPage() {
   }
 
   async function loadList(params: Record<string, unknown>) {
+    // 关系列表加载统一维护 loading，筛选、分页和保存后刷新都复用该入口。
     setLoading(true);
     try {
       const data = await getRelationList(params);
@@ -86,6 +87,7 @@ export default function GraphRelationsPage() {
 
   // 关系起点和终点都来自实体检索下拉，这里做按关键字远程搜索。
   async function searchEntities(keyword: string) {
+    // 空关键字不请求后端，避免远程下拉保留无效候选。
     if (!keyword.trim()) {
       setEntityOptions([]);
       return;
@@ -99,6 +101,7 @@ export default function GraphRelationsPage() {
   }
 
   async function openEditor(record?: GraphRelationListItem) {
+    // 新增和编辑共用抽屉，编辑时再回源详情接口补齐扩展属性。
     setEditingId(record?.id ?? null);
     setDrawerOpen(true);
     editForm.resetFields();
@@ -184,12 +187,18 @@ export default function GraphRelationsPage() {
       title: "操作",
       width: 160,
       fixed: "right",
-          render: (_, record) => (
+      render: (_, record) => (
         <Space size="small">
           <Button size="small" icon={<EditOutlined />} onClick={() => void openEditor(record)}>
             编辑
           </Button>
-          <Popconfirm title="确认删除该关系吗？" onConfirm={() => void deleteRelation(record.id).then(() => loadList(query))}>
+          <Popconfirm
+            title="确认删除该关系吗？"
+            onConfirm={() => {
+              // 删除后回到当前查询条件刷新，确保表格立即反映后端状态。
+              void deleteRelation(record.id).then(() => loadList(query));
+            }}
+          >
             <Button size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>

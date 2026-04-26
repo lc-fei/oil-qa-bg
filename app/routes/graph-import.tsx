@@ -38,6 +38,7 @@ const importTypeOptions: Array<{ label: string; value: GraphImportType }> = [
   { label: "关系导入", value: "relation" },
 ];
 
+// 模板按钮跟随导入类型变化，避免同时展示多份模板造成误下载。
 const templateButtonText: Record<GraphImportType, string> = {
   entity: "下载实体模板",
   relation: "下载关系模板",
@@ -81,6 +82,7 @@ export default function GraphImportPage() {
   }
 
   async function handleTemplateDownload(templateType: GraphImportType) {
+    // 下载接口为受保护资源，必须走服务层以携带鉴权头和模板类型参数。
     setDownloadingTemplate(templateType);
     try {
       // 模板下载同样属于受保护接口，必须通过 axios 携带 token。
@@ -145,6 +147,7 @@ export default function GraphImportPage() {
             onFinish={async (values) => {
               // 上传接口要求 multipart/form-data，这里手动组装 FormData。
               if (!selectedFile) {
+                // 未选文件时阻止提交，避免后端返回 Required part 'file' is not present。
                 message.warning("请先选择导入文件");
                 return;
               }
@@ -198,6 +201,7 @@ export default function GraphImportPage() {
                 }}
                 fileList={fileList}
                 onRemove={() => {
+                  // 删除文件时同步清空原始 File，避免 UI 无文件但仍提交旧文件。
                   setFileList([]);
                   setSelectedFile(null);
                 }}

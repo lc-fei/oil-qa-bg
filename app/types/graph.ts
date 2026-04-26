@@ -1,3 +1,4 @@
+// 图谱模块类型覆盖实体、关系、类型字典、导入任务、版本和可视化数据结构。
 export interface GraphPageResult<T> {
   list: T[];
   pageNum: number;
