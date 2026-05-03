@@ -137,7 +137,14 @@ export interface GraphVisualizationEdge {
 }
 
 export interface GraphVisualizationData {
-  centerEntityId: string;
+  mode?: "FULL" | "CENTER" | string;
+  center?: GraphVisualizationNode | null;
+  centerEntityId?: string;
+  totalNodeCount?: number;
+  totalEdgeCount?: number;
+  returnedNodeCount?: number;
+  returnedEdgeCount?: number;
+  truncated?: boolean;
   nodes: GraphVisualizationNode[];
   edges: GraphVisualizationEdge[];
 }

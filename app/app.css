@@ -995,8 +995,8 @@ a {
   background-size: 28px 28px, 28px 28px, auto, auto;
 }
 
-.graph-canvas--dragging {
-  cursor: grabbing;
+.graph-canvas--g6 {
+  min-height: 640px;
 }
 
 .graph-canvas__toolbar {
@@ -1012,6 +1012,22 @@ a {
   background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 10px 24px rgba(14, 24, 35, 0.12);
   backdrop-filter: blur(12px);
+}
+
+.graph-truncated-alert {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 4;
+  max-width: 360px;
+  border-radius: 14px;
+  background: rgba(255, 250, 235, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.graph-g6-stage {
+  width: 100%;
+  height: 640px;
 }
 
 .graph-stage {

@@ -1,13 +1,13 @@
 import {
   ApartmentOutlined,
   ClusterOutlined,
-  DragOutlined,
   MinusOutlined,
   PlusOutlined,
   RedoOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -15,13 +15,17 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
+  Radio,
   Row,
   Select,
   Space,
+  Switch,
   Tag,
   message,
 } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Graph as G6Graph, GraphData } from "@antv/g6";
 
 import type { Route } from "./+types/graph-visual";
 import {
@@ -41,59 +45,254 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "图谱可视化 | 油井工程智能问答系统" }];
 }
 
-interface PositionedNode extends GraphVisualizationNode {
-  x: number;
-  y: number;
+type GraphQueryMode = "FULL" | "CENTER";
+
+const graphQueryModeOptions = [
+  { label: "中心实体", value: "CENTER" },
+  { label: "全量图谱", value: "FULL" },
+];
+
+const entityTypeColors = ["#c9863d", "#17675f", "#315f8c", "#8a5a32", "#7b6f3a", "#365766"];
+
+function getCenterEntityId(graph: GraphVisualizationData | null) {
+  // 兼容新接口的 center 对象和旧接口的 centerEntityId，避免后端灰度期间中心节点丢失高亮。
+  return graph?.center?.id ?? graph?.centerEntityId ?? "";
+}
+
+function getGraphSummary(graph: GraphVisualizationData | null) {
+  // 后端新增 total/returned/truncated 字段后，页面优先展示后端口径，缺失时回落到数组长度。
+  return {
+    mode: graph?.mode ?? "-",
+    totalNodeCount: graph?.totalNodeCount ?? graph?.nodes.length ?? 0,
+    totalEdgeCount: graph?.totalEdgeCount ?? graph?.edges.length ?? 0,
+    returnedNodeCount: graph?.returnedNodeCount ?? graph?.nodes.length ?? 0,
+    returnedEdgeCount: graph?.returnedEdgeCount ?? graph?.edges.length ?? 0,
+    truncated: Boolean(graph?.truncated),
+  };
+}
+
+function buildNodeColorMap(nodes: GraphVisualizationNode[]) {
+  const typeCodes = Array.from(new Set(nodes.map((node) => node.typeCode)));
+
+  // G6 渲染阶段只关心颜色映射，提前生成 Map 可避免每个节点重复计算类型索引。
+  return new Map(
+    typeCodes.map((typeCode, index) => [
+      typeCode,
+      entityTypeColors[index % entityTypeColors.length],
+    ]),
+  );
+}
+
+function toG6Data(graph: GraphVisualizationData): GraphData {
+  const centerEntityId = getCenterEntityId(graph);
+  const nodeColorMap = buildNodeColorMap(graph.nodes);
+
+  // 后端返回的是业务节点/边，G6 需要 id/source/target/style/data 结构，这里集中做协议转换。
+  return {
+    nodes: graph.nodes.map((node) => {
+      const color = nodeColorMap.get(node.typeCode) ?? "#c9863d";
+      const isCenter = node.id === centerEntityId;
+
+      return {
+        id: node.id,
+        data: { raw: node, color, isCenter },
+        style: {
+          fill: isCenter ? "#122131" : "#fffaf2",
+          stroke: color,
+          lineWidth: isCenter ? 3 : 1.8,
+          size: isCenter ? 46 : 32,
+          labelText: node.name,
+          labelPlacement: "bottom",
+          labelFill: "#13202c",
+          labelFontSize: 12,
+          labelFontWeight: 700,
+          labelBackground: true,
+          labelBackgroundFill: "rgba(255, 251, 246, 0.9)",
+          labelBackgroundRadius: 8,
+          labelPadding: [3, 7],
+        },
+      };
+    }),
+    edges: graph.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      data: { raw: edge },
+      style: {
+        stroke: "rgba(19, 30, 41, 0.3)",
+        lineWidth: 1.35,
+        endArrow: true,
+        labelText: edge.relationTypeName,
+        labelFill: "#7b5630",
+        labelFontSize: 11,
+        labelBackground: true,
+        labelBackgroundFill: "rgba(255, 251, 246, 0.88)",
+        labelBackgroundRadius: 7,
+        labelPadding: [2, 6],
+      },
+    })),
+  };
 }
 
 export default function GraphVisualPage() {
   const [form] = Form.useForm();
+  const graphMode = Form.useWatch("mode", form) as GraphQueryMode | undefined;
+  const currentGraphMode = graphMode ?? "CENTER";
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const g6GraphRef = useRef<G6Graph | null>(null);
   const [options, setOptions] = useState({ entityTypes: [], relationTypes: [] } as { entityTypes: Array<{ value: string; label: string }>; relationTypes: Array<{ value: string; label: string }> });
   const [entityOptions, setEntityOptions] = useState<GraphEntityOption[]>([]);
   const [graph, setGraph] = useState<GraphVisualizationData | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphVisualizationNode | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<GraphVisualizationEdge | null>(null);
   const [pathLoading, setPathLoading] = useState(false);
-  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [viewport, setViewport] = useState({ x: 0, y: 0, scale: 1 });
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
-  const [draggingCanvas, setDraggingCanvas] = useState(false);
-  const dragStateRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
-  const nodeDragRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [visualLoading, setVisualLoading] = useState(false);
 
   useEffect(() => {
     void getGraphOptions().then(setOptions).catch(() => undefined);
   }, []);
 
-  const positioned = useMemo(() => {
-    const nodes = graph?.nodes ?? [];
-    const centerX = 420;
-    const centerY = 250;
-    return nodes.map((node, index) => {
-      const manual = nodePositions[node.id];
-      // 用户拖拽过的节点优先保留手动位置，避免每次重渲染又回到自动布局。
-      if (manual) {
-        return { ...node, x: manual.x, y: manual.y };
-      }
-      if (node.id === graph?.centerEntityId) {
-        return { ...node, x: centerX, y: centerY };
-      }
-      // 非中心节点使用简化的环形布局，保证在无第三方图引擎时也能稳定展示。
-      const angle = ((index + 1) * Math.PI * 2) / Math.max(nodes.length - 1, 1);
-      const radius = nodes.length > 8 ? 220 : 180;
-      return {
-        ...node,
-        x: centerX + Math.cos(angle) * radius,
-        y: centerY + Math.sin(angle) * radius,
-      };
-    });
-  }, [graph, nodePositions]);
+  useEffect(() => {
+    if (!graph?.nodes.length || !containerRef.current) {
+      return;
+    }
 
-  const nodeMap = useMemo(
-    // 边绘制时需要频繁按 ID 查找节点坐标，用 Map 避免反复遍历数组。
-    () => new Map(positioned.map((item) => [item.id, item])),
-    [positioned],
-  );
+    let disposed = false;
+
+    async function renderG6Graph() {
+      const { Graph, NodeEvent, EdgeEvent, CanvasEvent } = await import("@antv/g6");
+      const container = containerRef.current;
+
+      if (!container || disposed || !graph) {
+        return;
+      }
+
+      g6GraphRef.current?.destroy();
+
+      const graphData = toG6Data(graph);
+      const width = container.clientWidth || 720;
+      const height = container.clientHeight || 620;
+
+      // FULL 使用 ForceAtlas2 做网络总览，避免普通力导向在大图下聚成一团。
+      const instance = new Graph({
+        container,
+        width,
+        height,
+        data: graphData,
+        autoFit: "view",
+        padding: 36,
+        animation: false,
+        layout: graph.mode === "CENTER"
+          ? {
+              type: "radial",
+              animation: false,
+              preventOverlap: true,
+              nodeSize: 64,
+              nodeSpacing: 18,
+              unitRadius: 160,
+            }
+          : {
+              type: "force-atlas2",
+              animate: false,
+              maxIteration: 520,
+              minMovement: 0.25,
+              preventOverlap: true,
+              // 视觉节点保持小尺寸，碰撞半径适度放大即可，避免“大球”互相挤压。
+              nodeSize: 54,
+              nodeSpacing: 22,
+              kr: 58,
+              kg: 0.06,
+              ks: 0.08,
+              ksmax: 8,
+              tao: 0.08,
+              dissuadeHubs: true,
+              barnesHut: true,
+              prune: false,
+            },
+        behaviors: ["drag-canvas", "zoom-canvas", "drag-element", "click-select"],
+        node: {
+          type: "circle",
+          state: {
+            selected: {
+              halo: true,
+              haloStroke: "#c9863d",
+              haloLineWidth: 10,
+              haloStrokeOpacity: 0.18,
+            },
+          },
+        },
+        edge: {
+          type: "line",
+          state: {
+            selected: {
+              stroke: "#c9863d",
+              lineWidth: 3,
+            },
+          },
+        },
+      });
+
+      instance.on(NodeEvent.CLICK, (event: unknown) => {
+        const nodeId = String((event as { target?: { id?: string } }).target?.id ?? "");
+        const node = graph.nodes.find((item) => item.id === nodeId);
+
+        // 点击节点时右侧详情切换到节点信息，并让 G6 选中态负责视觉高亮。
+        if (node) {
+          setSelectedNode(node);
+          setSelectedEdge(null);
+        }
+      });
+
+      instance.on(EdgeEvent.CLICK, (event: unknown) => {
+        const edgeId = String((event as { target?: { id?: string } }).target?.id ?? "");
+        const edge = graph.edges.find((item) => item.id === edgeId);
+
+        // 点击边时保留业务边对象，右侧面板展示关系语义和描述。
+        if (edge) {
+          setSelectedEdge(edge);
+          setSelectedNode(null);
+        }
+      });
+
+      instance.on(CanvasEvent.CLICK, () => {
+        // 点击画布空白处清空详情选择，避免用户误以为仍在编辑某个节点或边。
+        setSelectedNode(null);
+        setSelectedEdge(null);
+      });
+
+      await instance.render();
+      // force 是迭代布局，渲染完成后显式停止，保证全量图谱不会持续游动。
+      if (graph.mode === "FULL") {
+        instance.stopLayout();
+      }
+      g6GraphRef.current = instance;
+
+      if (disposed) {
+        instance.destroy();
+      }
+    }
+
+    void renderG6Graph().catch((error) => {
+      message.error(error instanceof Error ? error.message : "G6 图谱渲染失败");
+    });
+
+    return () => {
+      disposed = true;
+      g6GraphRef.current?.destroy();
+      g6GraphRef.current = null;
+    };
+  }, [graph]);
+
+  const graphSummary = useMemo(() => getGraphSummary(graph), [graph]);
+
+  function clearGraphCanvas() {
+    // 重新查询前先销毁旧 G6 实例并清空详情，避免旧图在新请求加载期间继续显示或残留事件。
+    g6GraphRef.current?.destroy();
+    g6GraphRef.current = null;
+    setGraph(null);
+    setSelectedNode(null);
+    setSelectedEdge(null);
+  }
 
   async function searchEntities(keyword: string) {
     // 下拉搜索为空时直接清空候选，避免继续保留上一次搜索结果造成误选。
@@ -110,25 +309,40 @@ export default function GraphVisualPage() {
   }
 
   async function handleVisualQuery(values: Record<string, unknown>) {
+    const mode = (values.mode ?? "CENTER") as GraphQueryMode;
+
+    // CENTER 模式必须有中心实体 ID 或名称，提前拦截可避免后端返回 404 后体验割裂。
+    if (mode === "CENTER" && !values.centerEntityId && !values.centerEntityName) {
+      message.warning("中心实体模式需要输入或选择中心实体");
+      return;
+    }
+
+    setVisualLoading(true);
+    clearGraphCanvas();
     try {
-      // 表单字段名和后端协议不同，这里统一转换为后端当前唯一认可的参数命名。
       const data = await getVisualization({
-        entityId: values.centerEntityId,
-        name: values.centerEntityName,
-        typeCode: values.entityTypeCode,
+        mode,
+        // 按接口文档约束参数作用域，避免模式切换后隐藏字段残留影响后端判断。
+        centerEntityId: mode === "CENTER" ? values.centerEntityId : undefined,
+        centerEntityName: mode === "CENTER" ? values.centerEntityName : undefined,
+        entityTypeCode: values.entityTypeCode,
         relationTypeCode: values.relationTypeCode,
-        level: values.level,
-        limit: values.limit,
+        level: mode === "CENTER" ? values.level : undefined,
+        nodeLimit: values.nodeLimit,
+        edgeLimit: values.edgeLimit,
+        includeIsolated: mode === "FULL" ? values.includeIsolated : undefined,
       });
       setGraph(data);
-      // 每次重新拉取子图都重置拖拽位置和视口，保证展示起点一致。
-      setNodePositions({});
-      setViewport({ x: 0, y: 0, scale: 1 });
-      const center = data.nodes.find((node) => node.id === data.centerEntityId) ?? data.nodes[0] ?? null;
-      setSelectedNode(center);
+      setSelectedNode(data.center ?? data.nodes.find((node) => node.id === getCenterEntityId(data)) ?? data.nodes[0] ?? null);
       setSelectedEdge(null);
+
+      if (data.truncated) {
+        message.warning("当前图谱数据较多，仅展示部分结果，可通过筛选或提高限制重新查询");
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : "图谱数据加载失败");
+    } finally {
+      setVisualLoading(false);
     }
   }
 
@@ -141,108 +355,26 @@ export default function GraphVisualPage() {
       return;
     }
     setPathLoading(true);
+    clearGraphCanvas();
     try {
       const data = await getPathData({ sourceEntityId, targetEntityId, maxDepth: 4 });
       setGraph({
+        mode: "CENTER",
+        center: data.nodes[0] ?? null,
         centerEntityId: data.nodes[0]?.id ?? "",
+        returnedNodeCount: data.nodes.length,
+        returnedEdgeCount: data.edges.length,
         nodes: data.nodes,
         edges: data.edges,
       });
-      // 路径高亮会替换当前画布内容，因此同样重置视口和手动布局。
-      setNodePositions({});
-      setViewport({ x: 0, y: 0, scale: 1 });
       setSelectedNode(data.nodes[0] ?? null);
       setSelectedEdge(null);
-      message.success("路径结果已高亮展示");
+      message.success("路径结果已使用 G6 高亮展示");
     } catch (error) {
       message.error(error instanceof Error ? error.message : "路径查询失败");
     } finally {
       setPathLoading(false);
     }
-  }
-
-  function handleWheel(event: React.WheelEvent<HTMLDivElement>) {
-    event.preventDefault();
-    const nextScale = viewport.scale + (event.deltaY < 0 ? 0.08 : -0.08);
-    // 缩放范围固定在可读区间内，避免画布被缩到不可操作。
-    setViewport((prev) => ({
-      ...prev,
-      scale: Math.min(1.8, Math.max(0.55, Number(nextScale.toFixed(2)))),
-    }));
-  }
-
-  function startCanvasDrag(event: React.MouseEvent<HTMLDivElement>) {
-    // 鼠标落在节点上时交给节点拖拽逻辑处理，避免两套拖拽冲突。
-    if ((event.target as HTMLElement).closest(".graph-node")) {
-      return;
-    }
-    setDraggingCanvas(true);
-    dragStateRef.current = {
-      startX: event.clientX,
-      startY: event.clientY,
-      baseX: viewport.x,
-      baseY: viewport.y,
-    };
-  }
-
-  function startNodeDrag(
-    event: React.MouseEvent<HTMLButtonElement>,
-    node: PositionedNode,
-  ) {
-    event.stopPropagation();
-    setDraggingNodeId(node.id);
-    nodeDragRef.current = {
-      id: node.id,
-      offsetX: event.clientX,
-      offsetY: event.clientY,
-    };
-  }
-
-  function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
-    if (draggingCanvas && dragStateRef.current) {
-      const deltaX = event.clientX - dragStateRef.current.startX;
-      const deltaY = event.clientY - dragStateRef.current.startY;
-      // 画布拖拽直接更新视口偏移，不改节点原始坐标。
-      setViewport((prev) => ({
-        ...prev,
-        x: dragStateRef.current!.baseX + deltaX,
-        y: dragStateRef.current!.baseY + deltaY,
-      }));
-      return;
-    }
-
-    if (draggingNodeId && nodeDragRef.current) {
-      const current = nodeMap.get(draggingNodeId);
-      if (!current) {
-        return;
-      }
-
-      // 节点拖拽要除以当前缩放倍数，否则缩放后拖动距离会失真。
-      const movementX = (event.clientX - nodeDragRef.current.offsetX) / viewport.scale;
-      const movementY = (event.clientY - nodeDragRef.current.offsetY) / viewport.scale;
-
-      setNodePositions((prev) => ({
-        ...prev,
-        [draggingNodeId]: {
-          x: current.x + movementX,
-          y: current.y + movementY,
-        },
-      }));
-
-      nodeDragRef.current = {
-        id: draggingNodeId,
-        offsetX: event.clientX,
-        offsetY: event.clientY,
-      };
-    }
-  }
-
-  function stopDrag() {
-    // 鼠标释放或离开画布时统一清空拖拽状态，避免残留拖拽引用影响下一次操作。
-    setDraggingCanvas(false);
-    setDraggingNodeId(null);
-    dragStateRef.current = null;
-    nodeDragRef.current = null;
   }
 
   return (
@@ -252,12 +384,12 @@ export default function GraphVisualPage() {
           <div>
             <span className="page-hero__eyebrow">VISUAL ANALYSIS</span>
             <h1>图谱可视化</h1>
-            <p>以中心实体逐步展开子图，联动节点与边详情，并支持两点路径查询结果高亮。</p>
+            <p>支持全量图谱总览与中心实体子图分析，使用 G6 承载布局、缩放、拖拽和节点关系联动。</p>
           </div>
           <div className="page-hero__tags">
-            <Tag color="gold" bordered={false}>中心实体展开</Tag>
-            <Tag color="blue" bordered={false}>路径高亮</Tag>
-            <Tag color="green" bordered={false}>详情联动</Tag>
+            <Tag color="gold" bordered={false}>G6 引擎</Tag>
+            <Tag color="blue" bordered={false}>全量图谱</Tag>
+            <Tag color="green" bordered={false}>路径高亮</Tag>
           </div>
         </div>
       </section>
@@ -267,22 +399,35 @@ export default function GraphVisualPage() {
           <Form
             form={form}
             layout="vertical"
-            initialValues={{ level: 1, limit: 20 }}
+            initialValues={{
+              mode: "CENTER",
+              level: 1,
+              nodeLimit: 1000,
+              edgeLimit: 2000,
+              includeIsolated: true,
+            }}
             onFinish={(values) => void handleVisualQuery(values)}
           >
-            <Form.Item label="中心实体名称" name="centerEntityName">
-              <Input placeholder="可直接输入中心实体名称" />
+            <Form.Item label="查询模式" name="mode">
+              <Radio.Group block options={graphQueryModeOptions} optionType="button" buttonStyle="solid" />
             </Form.Item>
-            <Form.Item label="中心实体选择" name="centerEntityId">
-              <Select
-                showSearch
-                allowClear
-                filterOption={false}
-                options={entityOptions.map((item) => ({ label: `${item.label} / ${item.typeName}`, value: item.value }))}
-                onSearch={(value) => void searchEntities(value)}
-                placeholder="搜索实体后选择"
-              />
-            </Form.Item>
+            {currentGraphMode === "CENTER" ? (
+              <>
+                <Form.Item label="中心实体名称" name="centerEntityName">
+                  <Input placeholder="可直接输入中心实体名称" />
+                </Form.Item>
+                <Form.Item label="中心实体选择" name="centerEntityId">
+                  <Select
+                    showSearch
+                    allowClear
+                    filterOption={false}
+                    options={entityOptions.map((item) => ({ label: `${item.label} / ${item.typeName}`, value: item.value }))}
+                    onSearch={(value) => void searchEntities(value)}
+                    placeholder="搜索实体后选择"
+                  />
+                </Form.Item>
+              </>
+            ) : null}
             <Form.Item label="实体类型" name="entityTypeCode">
               <Select allowClear options={options.entityTypes} placeholder="全部实体类型" />
             </Form.Item>
@@ -290,19 +435,33 @@ export default function GraphVisualPage() {
               <Select allowClear options={options.relationTypes} placeholder="全部关系类型" />
             </Form.Item>
             <Row gutter={12}>
-              <Col span={12}>
-                <Form.Item label="展开层级" name="level">
-                  <Select options={[{ label: "1 跳", value: 1 }, { label: "2 跳", value: 2 }]} />
+              {currentGraphMode === "CENTER" ? (
+                <Col span={12}>
+                  <Form.Item label="展开层级" name="level">
+                    <Select options={[{ label: "1 跳", value: 1 }, { label: "2 跳", value: 2 }]} />
+                  </Form.Item>
+                </Col>
+              ) : null}
+              <Col span={currentGraphMode === "CENTER" ? 12 : 24}>
+                <Form.Item label="包含孤立节点" name="includeIsolated" valuePropName="checked">
+                  <Switch disabled={currentGraphMode === "CENTER"} checkedChildren="包含" unCheckedChildren="排除" />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item label="节点上限" name="limit">
-                  <Select options={[10, 20, 30, 50].map((value) => ({ label: `${value}`, value }))} />
+                <Form.Item label="节点上限" name="nodeLimit">
+                  <InputNumber min={10} max={5000} precision={0} style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="关系上限" name="edgeLimit">
+                  <InputNumber min={10} max={10000} precision={0} style={{ width: "100%" }} />
                 </Form.Item>
               </Col>
             </Row>
             <Space wrap>
-              <Button type="primary" htmlType="submit" icon={<SearchOutlined />}>生成图谱</Button>
+              <Button type="primary" htmlType="submit" icon={<SearchOutlined />} loading={visualLoading}>
+                {currentGraphMode === "CENTER" ? "生成子图" : "加载全量图谱"}
+              </Button>
               <Button onClick={() => form.resetFields()}>重置条件</Button>
             </Space>
 
@@ -334,82 +493,43 @@ export default function GraphVisualPage() {
 
         <Card className="graph-canvas-card" bordered={false}>
           {graph?.nodes?.length ? (
-            <div
-              className={`graph-canvas ${draggingCanvas ? "graph-canvas--dragging" : ""}`}
-              onWheel={handleWheel}
-              onMouseDown={startCanvasDrag}
-              onMouseMove={handleMouseMove}
-              onMouseUp={stopDrag}
-              onMouseLeave={stopDrag}
-            >
+            <div className="graph-canvas graph-canvas--g6">
               <div className="graph-canvas__toolbar">
+                <Tag bordered={false} color={graphSummary.mode === "FULL" ? "blue" : "gold"}>
+                  {graphSummary.mode === "FULL" ? "全量" : "中心"}
+                </Tag>
                 <Tag bordered={false} color="blue">
-                  节点 {graph.nodes.length}
+                  节点 {graphSummary.returnedNodeCount}/{graphSummary.totalNodeCount}
                 </Tag>
                 <Tag bordered={false} color="gold">
-                  边 {graph.edges.length}
+                  边 {graphSummary.returnedEdgeCount}/{graphSummary.totalEdgeCount}
                 </Tag>
-                <Button size="small" icon={<MinusOutlined />} onClick={() => setViewport((prev) => ({ ...prev, scale: Math.max(0.55, Number((prev.scale - 0.1).toFixed(2))) }))} />
-                <Button size="small" icon={<PlusOutlined />} onClick={() => setViewport((prev) => ({ ...prev, scale: Math.min(1.8, Number((prev.scale + 0.1).toFixed(2))) }))} />
+                <Button size="small" icon={<MinusOutlined />} onClick={() => void g6GraphRef.current?.zoomBy(0.86)} />
+                <Button size="small" icon={<PlusOutlined />} onClick={() => void g6GraphRef.current?.zoomBy(1.16)} />
                 <Button
                   size="small"
                   icon={<RedoOutlined />}
                   onClick={() => {
-                    // 复位需要同时清空视口和手动节点位置，才能回到初始自动布局。
-                    setViewport({ x: 0, y: 0, scale: 1 });
-                    setNodePositions({});
+                    // 复位交给 G6 fitView 处理，保持缩放、平移和布局后的图形都回到可视范围。
+                    void g6GraphRef.current?.fitView({ when: "always", direction: "both" }, { duration: 260, easing: "ease-out" });
                   }}
                 >
                   复位
                 </Button>
               </div>
-
-              <div
-                className="graph-stage"
-                style={{
-                  transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
-                }}
-              >
-                <svg className="graph-svg" viewBox="0 0 840 520">
-                  {graph.edges.map((edge) => {
-                    const source = nodeMap.get(edge.source);
-                    const target = nodeMap.get(edge.target);
-                    // 后端可能返回缺失端点的边，前端跳过异常边避免 SVG 渲染报错。
-                    if (!source || !target) return null;
-                    return (
-                      <g key={edge.id} onClick={() => { setSelectedEdge(edge); setSelectedNode(null); }}>
-                        <line x1={source.x} y1={source.y} x2={target.x} y2={target.y} className={`graph-line ${selectedEdge?.id === edge.id ? "graph-line--active" : ""}`} />
-                        <text
-                          x={(source.x + target.x) / 2}
-                          y={(source.y + target.y) / 2 - 8}
-                          textAnchor="middle"
-                          className="graph-edge-label"
-                        >
-                          {edge.relationTypeName}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-                {positioned.map((node) => (
-                  <button
-                    key={node.id}
-                    type="button"
-                    className={`graph-node ${graph.centerEntityId === node.id ? "graph-node--center" : ""} ${selectedNode?.id === node.id ? "graph-node--active" : ""}`}
-                    style={{ left: node.x, top: node.y }}
-                    onMouseDown={(event) => startNodeDrag(event, node)}
-                    onClick={() => { setSelectedNode(node); setSelectedEdge(null); }}
-                  >
-                    <span>{node.typeName}</span>
-                    <strong>{node.name}</strong>
-                    <em><DragOutlined /> 拖拽</em>
-                  </button>
-                ))}
-              </div>
+              {graphSummary.truncated ? (
+                <Alert
+                  className="graph-truncated-alert"
+                  type="warning"
+                  showIcon
+                  message="当前图谱数据较多，仅展示部分结果"
+                />
+              ) : null}
+              <div ref={containerRef} className="graph-g6-stage" />
             </div>
           ) : (
             <div className="graph-empty">
-              <Empty description="输入中心实体后生成图谱子图" />
+              <Empty description="加载全量图谱或输入中心实体后生成子图" />
             </div>
           )}
         </Card>
@@ -433,8 +553,8 @@ export default function GraphVisualPage() {
                   <strong>{Object.keys(selectedNode.properties || {}).length}</strong>
                 </div>
                 <div>
-                  <span>画布位置</span>
-                  <strong>{nodeMap.get(selectedNode.id)?.x?.toFixed(0)} / {nodeMap.get(selectedNode.id)?.y?.toFixed(0)}</strong>
+                  <span>当前模式</span>
+                  <strong>{graphSummary.mode}</strong>
                 </div>
               </div>
               <Card size="small" title="扩展属性">

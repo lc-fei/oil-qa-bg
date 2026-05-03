@@ -272,7 +272,7 @@ export async function createVersion(payload: Record<string, unknown>) {
   return response.data.data;
 }
 
-// 可视化接口按中心实体、类型和层级拉取子图数据。
+// 可视化接口同时支持 FULL 全量图谱和 CENTER 中心实体子图，由页面按模式传参。
 export async function getVisualization(params: Record<string, unknown>) {
   const response = await request.get<ApiResponse<GraphVisualizationData>>(
     "/api/admin/graph/visualization",
