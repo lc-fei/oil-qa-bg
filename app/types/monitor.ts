@@ -1,4 +1,21 @@
-// 运行监控类型覆盖问答链路、性能统计和已合并的异常日志模块。
+// 运行监控类型覆盖问答链路、AI 编排轨迹、性能统计和已合并的异常日志模块。
+export type WorkflowStage =
+  | "QUESTION_UNDERSTANDING"
+  | "PLANNING"
+  | "RETRIEVAL"
+  | "RANKING"
+  | "GENERATION"
+  | "QUALITY_CHECK"
+  | "ARCHIVING";
+
+export type WorkflowStatus =
+  | "PROCESSING"
+  | "SUCCESS"
+  | "FAILED"
+  | "PARTIAL_SUCCESS"
+  | "INTERRUPTED"
+  | "NEED_CLARIFICATION";
+
 export interface MonitorPageResult<T> {
   list: T[];
   total: number;
@@ -37,6 +54,17 @@ export interface MonitorRequestDetail extends MonitorRequestItem {
   traceId: string;
   userId: string;
   userAccount: string;
+  workflow?: MonitorWorkflowSummary | null;
+}
+
+export interface MonitorWorkflowSummary {
+  archiveId: number;
+  workflowStatus: WorkflowStatus | string;
+  currentStage: WorkflowStage | string;
+  stageCount: number;
+  toolCallCount: number;
+  qualityScore: number | null;
+  hallucinationRisk: string | null;
 }
 
 export interface MonitorNlpDetail {
@@ -92,7 +120,40 @@ export interface MonitorTimingsDetail {
     phaseName: string;
     durationMs: number;
     success: boolean;
+    source?: "monitor" | "workflow" | string;
   }>;
+}
+
+export interface MonitorWorkflowDetail {
+  requestId: string;
+  archiveId: number;
+  workflowStatus: WorkflowStatus | string;
+  currentStage: WorkflowStage | string;
+  stages: Array<{
+    stageCode: WorkflowStage | string;
+    stageName: string;
+    status: "PROCESSING" | "SUCCESS" | "FAILED" | string;
+    durationMs: number;
+    summary: string;
+    errorMessage: string | null;
+  }>;
+  toolCalls: Array<{
+    toolName: string;
+    toolLabel: string;
+    status: "PROCESSING" | "SUCCESS" | "FAILED" | string;
+    durationMs: number;
+    inputSummary: string;
+    outputSummary: string;
+    errorMessage: string | null;
+  }>;
+  questionUnderstanding?: Record<string, unknown>;
+  planning?: Record<string, unknown>;
+  evidence?: Array<Record<string, unknown>>;
+  ranking?: Record<string, unknown>;
+  generation?: Record<string, unknown>;
+  quality?: Record<string, unknown>;
+  timings?: Record<string, unknown>;
+  errorMessage: string | null;
 }
 
 export interface MonitorTrendPoint {

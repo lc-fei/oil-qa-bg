@@ -1204,6 +1204,62 @@ a {
   font-size: 12px;
 }
 
+.monitor-workflow-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.monitor-workflow-summary div,
+.monitor-tool-item {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(19, 30, 41, 0.04);
+  border: 1px solid rgba(19, 30, 41, 0.06);
+}
+
+.monitor-workflow-summary span,
+.monitor-empty-text {
+  display: block;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.monitor-workflow-summary strong {
+  display: block;
+  margin-top: 6px;
+}
+
+.monitor-tool-list {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-tool-item > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.monitor-tool-item > span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.monitor-tool-item p {
+  margin: 8px 0 0;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
+.monitor-phase-error {
+  margin-top: 6px;
+  color: #b42318 !important;
+}
+
 .graph-info-stats,
 .graph-property-grid {
   display: grid;
@@ -1405,7 +1461,8 @@ a {
   }
 
   .graph-info-stats,
-  .graph-property-grid {
+  .graph-property-grid,
+  .monitor-workflow-summary {
     grid-template-columns: 1fr;
   }
 

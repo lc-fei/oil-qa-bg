@@ -15,6 +15,7 @@ import type {
   MonitorTimingsDetail,
   MonitorTopQuestion,
   MonitorTrendPoint,
+  MonitorWorkflowDetail,
 } from "../types/monitor";
 import { request } from "./request";
 
@@ -66,6 +67,12 @@ export async function getMonitorAiDetail(requestId: string) {
 export async function getMonitorTimings(requestId: string) {
   // 耗时拆解接口用于把一次问答请求拆成多个阶段分析瓶颈。
   const response = await request.get<ApiResponse<MonitorTimingsDetail>>(`/api/admin/monitor/requests/${requestId}/timings`);
+  return response.data.data;
+}
+
+export async function getMonitorWorkflowDetail(requestId: string) {
+  // AI 编排轨迹来自 qa_orchestration_trace，用于补充传统链路监控看不到的工具调用和质量校验过程。
+  const response = await request.get<ApiResponse<MonitorWorkflowDetail>>(`/api/admin/monitor/requests/${requestId}/workflow`);
   return response.data.data;
 }
 

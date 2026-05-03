@@ -45,6 +45,7 @@ import {
   getMonitorTimings,
   getMonitorTopQuestions,
   getMonitorTrend,
+  getMonitorWorkflowDetail,
   updateExceptionHandleStatus,
 } from "../services/monitor";
 import type {
@@ -62,6 +63,7 @@ import type {
   MonitorTimingsDetail,
   MonitorTopQuestion,
   MonitorTrendPoint,
+  MonitorWorkflowDetail,
 } from "../types/monitor";
 
 const { RangePicker } = DatePicker;
@@ -99,9 +101,34 @@ const handleStatusOptions = ["UNHANDLED", "HANDLING", "HANDLED", "IGNORED"].map(
   value,
 }));
 
+const workflowStageLabels: Record<string, string> = {
+  QUESTION_UNDERSTANDING: "问题理解",
+  PLANNING: "任务规划",
+  RETRIEVAL: "知识检索",
+  RANKING: "证据融合排序",
+  GENERATION: "答案生成",
+  QUALITY_CHECK: "质量校验",
+  ARCHIVING: "结果归档",
+};
+
 // 百分比在多个统计卡和性能区重复使用，统一在这里格式化。
 function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function workflowStatusColor(status?: string) {
+  // 编排状态与阶段/工具状态共用配色，失败和中断优先以红色提示排障风险。
+  if (!status) return "default";
+  if (status === "SUCCESS") return "green";
+  if (["FAILED", "INTERRUPTED"].includes(status)) return "red";
+  if (status === "PARTIAL_SUCCESS") return "gold";
+  if (status === "NEED_CLARIFICATION") return "purple";
+  return "blue";
+}
+
+function workflowStageLabel(stage?: string) {
+  // 后端可能扩展新的阶段编码，未知编码直接回显，避免前端丢失排障信息。
+  return stage ? workflowStageLabels[stage] ?? stage : "-";
 }
 
 // 统计趋势接口要求显式日期范围，这里用本地时间计算最近 7 天，避免页面写死历史日期。
@@ -178,6 +205,7 @@ export default function MonitorPage() {
   const [promptDetail, setPromptDetail] = useState<MonitorPromptDetail | null>(null);
   const [aiDetail, setAiDetail] = useState<MonitorAiCallDetail | null>(null);
   const [timingsDetail, setTimingsDetail] = useState<MonitorTimingsDetail | null>(null);
+  const [workflowDetail, setWorkflowDetail] = useState<MonitorWorkflowDetail | null>(null);
 
   const [exceptionDrawerOpen, setExceptionDrawerOpen] = useState(false);
   const [exceptionDetail, setExceptionDetail] = useState<ExceptionLogDetail | null>(null);
@@ -258,13 +286,16 @@ export default function MonitorPage() {
   // 链路详情抽屉需要一次性拿齐多个阶段接口，避免用户切 Tab 时重复等待。
   async function openRequestDetail(requestId: string) {
     try {
-      const [base, nlp, graph, prompt, ai, timings] = await Promise.all([
+      // 先清空上一次详情，避免接口加载期间残留旧请求的编排轨迹。
+      setWorkflowDetail(null);
+      const [base, nlp, graph, prompt, ai, timings, workflow] = await Promise.all([
         getMonitorRequestDetail(requestId),
         getMonitorNlpDetail(requestId),
         getMonitorGraphDetail(requestId),
         getMonitorPromptDetail(requestId),
         getMonitorAiDetail(requestId),
         getMonitorTimings(requestId),
+        getMonitorWorkflowDetail(requestId),
       ]);
       setRequestDetail(base);
       setNlpDetail(nlp);
@@ -272,6 +303,7 @@ export default function MonitorPage() {
       setPromptDetail(prompt);
       setAiDetail(ai);
       setTimingsDetail(timings);
+      setWorkflowDetail(workflow);
       setRequestDrawerOpen(true);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "链路详情加载失败");
@@ -657,6 +689,38 @@ export default function MonitorPage() {
               <Descriptions.Item label="原始问题" span={2}>{requestDetail.question}</Descriptions.Item>
               <Descriptions.Item label="最终回答" span={2}>{requestDetail.finalAnswer}</Descriptions.Item>
             </Descriptions>
+            {requestDetail.workflow ? (
+              <Card size="small" title="AI 编排摘要">
+                <div className="monitor-workflow-summary">
+                  <div>
+                    <span>编排状态</span>
+                    <Tag color={workflowStatusColor(requestDetail.workflow.workflowStatus)}>
+                      {requestDetail.workflow.workflowStatus}
+                    </Tag>
+                  </div>
+                  <div>
+                    <span>当前阶段</span>
+                    <strong>{workflowStageLabel(requestDetail.workflow.currentStage)}</strong>
+                  </div>
+                  <div>
+                    <span>阶段数量</span>
+                    <strong>{requestDetail.workflow.stageCount}</strong>
+                  </div>
+                  <div>
+                    <span>工具调用</span>
+                    <strong>{requestDetail.workflow.toolCallCount}</strong>
+                  </div>
+                  <div>
+                    <span>质量评分</span>
+                    <strong>{requestDetail.workflow.qualityScore ?? "-"}</strong>
+                  </div>
+                  <div>
+                    <span>幻觉风险</span>
+                    <strong>{requestDetail.workflow.hallucinationRisk ?? "-"}</strong>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
             <Tabs
               items={[
                 {
@@ -668,7 +732,10 @@ export default function MonitorPage() {
                         <div className="monitor-phase-item" key={item.phaseCode}>
                           <div>
                             <strong>{item.phaseName}</strong>
-                            <span>{item.phaseCode}</span>
+                            <span>
+                              {item.phaseCode}
+                              {item.source ? ` · ${item.source === "workflow" ? "编排轨迹" : "传统监控"}` : ""}
+                            </span>
                           </div>
                           <div>
                             <strong>{item.durationMs}ms</strong>
@@ -714,6 +781,66 @@ export default function MonitorPage() {
                         <pre className="json-block">{promptDetail?.promptContent || "-"}</pre>
                       </Descriptions.Item>
                     </Descriptions>
+                  ),
+                },
+                {
+                  key: "workflow",
+                  label: "AI 编排轨迹",
+                  children: workflowDetail ? (
+                    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                      <Descriptions bordered column={2} size="small">
+                        <Descriptions.Item label="归档 ID">{workflowDetail.archiveId}</Descriptions.Item>
+                        <Descriptions.Item label="编排状态">
+                          <Tag color={workflowStatusColor(workflowDetail.workflowStatus)}>
+                            {workflowDetail.workflowStatus}
+                          </Tag>
+                        </Descriptions.Item>
+                        <Descriptions.Item label="当前阶段">{workflowStageLabel(workflowDetail.currentStage)}</Descriptions.Item>
+                        <Descriptions.Item label="失败原因">{workflowDetail.errorMessage || "-"}</Descriptions.Item>
+                      </Descriptions>
+                      <Card size="small" title="阶段轨迹">
+                        <div className="monitor-phase-list">
+                          {workflowDetail.stages?.map((stage) => (
+                            <div className="monitor-phase-item" key={stage.stageCode}>
+                              <div>
+                                <strong>{stage.stageName || workflowStageLabel(stage.stageCode)}</strong>
+                                <span>{stage.summary || stage.stageCode}</span>
+                                {stage.errorMessage ? <span className="monitor-phase-error">{stage.errorMessage}</span> : null}
+                              </div>
+                              <div>
+                                <strong>{stage.durationMs}ms</strong>
+                                <Tag color={workflowStatusColor(stage.status)}>{stage.status}</Tag>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                      <Card size="small" title="内部工具调用">
+                        <div className="monitor-tool-list">
+                          {workflowDetail.toolCalls?.length ? (
+                            workflowDetail.toolCalls.map((tool, index) => (
+                              <div className="monitor-tool-item" key={`${tool.toolName}-${index}`}>
+                                <div>
+                                  <strong>{tool.toolLabel || tool.toolName}</strong>
+                                  <Tag color={workflowStatusColor(tool.status)}>{tool.status}</Tag>
+                                </div>
+                                <span>耗时 {tool.durationMs}ms</span>
+                                <p>入参：{tool.inputSummary || "-"}</p>
+                                <p>出参：{tool.outputSummary || "-"}</p>
+                                {tool.errorMessage ? <p className="monitor-phase-error">失败原因：{tool.errorMessage}</p> : null}
+                              </div>
+                            ))
+                          ) : (
+                            <span className="monitor-empty-text">暂无工具调用记录</span>
+                          )}
+                        </div>
+                      </Card>
+                      <Card size="small" title="质量校验">
+                        <pre className="json-block">{JSON.stringify(workflowDetail.quality || {}, null, 2)}</pre>
+                      </Card>
+                    </Space>
+                  ) : (
+                    <span className="monitor-empty-text">暂无 AI 编排轨迹数据</span>
                   ),
                 },
                 {
