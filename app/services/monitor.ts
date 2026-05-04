@@ -71,7 +71,7 @@ export async function getMonitorTimings(requestId: string) {
 }
 
 export async function getMonitorWorkflowDetail(requestId: string) {
-  // AI 编排轨迹来自 qa_orchestration_trace，用于补充传统链路监控看不到的工具调用和质量校验过程。
+  // AI 编排轨迹来自 qa_orchestration_trace，用于补充传统链路监控看不到的编排阶段和工具调用。
   const response = await request.get<ApiResponse<MonitorWorkflowDetail>>(`/api/admin/monitor/requests/${requestId}/workflow`);
   return response.data.data;
 }

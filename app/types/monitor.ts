@@ -5,7 +5,6 @@ export type WorkflowStage =
   | "RETRIEVAL"
   | "RANKING"
   | "GENERATION"
-  | "QUALITY_CHECK"
   | "ARCHIVING";
 
 export type WorkflowStatus =
@@ -63,8 +62,9 @@ export interface MonitorWorkflowSummary {
   currentStage: WorkflowStage | string;
   stageCount: number;
   toolCallCount: number;
-  qualityScore: number | null;
-  hallucinationRisk: string | null;
+  // 以下质检字段仅用于兼容旧接口数据，新流程不再展示为独立阶段。
+  qualityScore?: number | null;
+  hallucinationRisk?: string | null;
 }
 
 export interface MonitorNlpDetail {
@@ -151,7 +151,8 @@ export interface MonitorWorkflowDetail {
   evidence?: Array<Record<string, unknown>>;
   ranking?: Record<string, unknown>;
   generation?: Record<string, unknown>;
-  quality?: Record<string, unknown>;
+  // 历史质检扩展字段可能仍由旧数据返回，但当前前端不再渲染质检节点。
+  quality?: Record<string, unknown> | null;
   timings?: Record<string, unknown>;
   errorMessage: string | null;
 }

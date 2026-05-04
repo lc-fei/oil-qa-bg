@@ -107,7 +107,6 @@ const workflowStageLabels: Record<string, string> = {
   RETRIEVAL: "知识检索",
   RANKING: "证据融合排序",
   GENERATION: "答案生成",
-  QUALITY_CHECK: "质量校验",
   ARCHIVING: "结果归档",
 };
 
@@ -710,14 +709,6 @@ export default function MonitorPage() {
                     <span>工具调用</span>
                     <strong>{requestDetail.workflow.toolCallCount}</strong>
                   </div>
-                  <div>
-                    <span>质量评分</span>
-                    <strong>{requestDetail.workflow.qualityScore ?? "-"}</strong>
-                  </div>
-                  <div>
-                    <span>幻觉风险</span>
-                    <strong>{requestDetail.workflow.hallucinationRisk ?? "-"}</strong>
-                  </div>
                 </div>
               </Card>
             ) : null}
@@ -834,9 +825,6 @@ export default function MonitorPage() {
                             <span className="monitor-empty-text">暂无工具调用记录</span>
                           )}
                         </div>
-                      </Card>
-                      <Card size="small" title="质量校验">
-                        <pre className="json-block">{JSON.stringify(workflowDetail.quality || {}, null, 2)}</pre>
                       </Card>
                     </Space>
                   ) : (
